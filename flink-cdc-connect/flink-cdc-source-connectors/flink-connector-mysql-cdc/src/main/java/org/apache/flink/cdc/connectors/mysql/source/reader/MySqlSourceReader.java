@@ -51,8 +51,8 @@ import org.apache.flink.connector.base.source.reader.synchronization.FutureCompl
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlPartition;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 import org.slf4j.Logger;
@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static io.debezium.relational.RelationalDatabaseConnectorConfig.DATABASE_NAME;
 import static org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlBinlogSplitAssigner.BINLOG_SPLIT_ID;
 
 /** The source reader for MySQL source splits. */
@@ -105,7 +106,9 @@ public class MySqlSourceReader<T>
         this.mySqlSourceReaderContext = context;
         this.suspendedBinlogSplit = null;
         this.partition =
-                new MySqlPartition(sourceConfig.getMySqlConnectorConfig().getLogicalName());
+                new MySqlPartition(
+                        sourceConfig.getMySqlConnectorConfig().getLogicalName(),
+                        sourceConfig.getDbzConfiguration().getString(DATABASE_NAME.name()));
     }
 
     @Override

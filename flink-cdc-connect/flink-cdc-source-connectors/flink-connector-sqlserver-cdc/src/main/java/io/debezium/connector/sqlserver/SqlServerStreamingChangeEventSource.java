@@ -9,6 +9,8 @@ package io.debezium.connector.sqlserver;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig.SnapshotMode;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.notification.Notification;
+import io.debezium.pipeline.notification.NotificationService;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
 import io.debezium.relational.ChangeTable;
 import io.debezium.relational.Table;
@@ -20,16 +22,11 @@ import io.debezium.util.Metronome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -93,6 +90,13 @@ public class SqlServerStreamingChangeEventSource
     private final ElapsedTimeStrategy pauseBetweenCommits;
     private final Map<SqlServerPartition, SqlServerStreamingExecutionContext>
             streamingExecutionContexts;
+    private final Map<SqlServerPartition, Set<SqlServerChangeTable>> changeTablesWithKnownStopLsn =
+            new HashMap<>();
+
+    private boolean checkAgent;
+    private SqlServerOffsetContext effectiveOffset;
+    private final NotificationService<SqlServerPartition, SqlServerOffsetContext>
+            notificationService;
 
     public SqlServerStreamingChangeEventSource(
             SqlServerConnectorConfig connectorConfig,
@@ -101,7 +105,8 @@ public class SqlServerStreamingChangeEventSource
             EventDispatcher<SqlServerPartition, TableId> dispatcher,
             ErrorHandler errorHandler,
             Clock clock,
-            SqlServerDatabaseSchema schema) {
+            SqlServerDatabaseSchema schema,
+            NotificationService<SqlServerPartition, SqlServerOffsetContext> notificationService) {
         this.connectorConfig = connectorConfig;
         this.dataConnection = dataConnection;
         this.metadataConnection = metadataConnection;
@@ -109,6 +114,7 @@ public class SqlServerStreamingChangeEventSource
         this.errorHandler = errorHandler;
         this.clock = clock;
         this.schema = schema;
+        this.notificationService = notificationService;
         this.pollInterval = connectorConfig.getPollInterval();
         final Duration intervalBetweenCommitsBasedOnPoll =
                 this.pollInterval.multipliedBy(INTERVAL_BETWEEN_COMMITS_BASED_ON_POLL_FACTOR);
@@ -120,8 +126,17 @@ public class SqlServerStreamingChangeEventSource
                                         > 0
                                 ? DEFAULT_INTERVAL_BETWEEN_COMMITS.toMillis()
                                 : intervalBetweenCommitsBasedOnPoll.toMillis());
-        this.pauseBetweenCommits.hasElapsed();
         this.streamingExecutionContexts = new HashMap<>();
+        this.checkAgent = true;
+    }
+
+    @Override
+    public void init(SqlServerOffsetContext offsetContext) throws InterruptedException {
+        this.effectiveOffset =
+                offsetContext == null
+                        ? new SqlServerOffsetContext(
+                                connectorConfig, TxLogPosition.NULL, false, false)
+                        : offsetContext;
     }
 
     @Override
@@ -157,6 +172,8 @@ public class SqlServerStreamingChangeEventSource
         }
 
         final String databaseName = partition.getDatabaseName();
+
+        this.effectiveOffset = offsetContext;
 
         try {
             final SqlServerStreamingExecutionContext streamingExecutionContext =
@@ -208,14 +225,31 @@ public class SqlServerStreamingChangeEventSource
                 // Shouldn't happen if the agent is running, but it is better to guard against such
                 // situation
                 if (!toLsn.isAvailable()) {
-                    LOGGER.warn(
-                            "No maximum LSN recorded in the database; please ensure that the SQL Server Agent is running");
+                    if (checkAgent) {
+                        try {
+                            if (!dataConnection.isAgentRunning(databaseName)) {
+                                LOGGER.error(
+                                        "No maximum LSN recorded in the database; SQL Server Agent is not running");
+                            }
+                        } catch (SQLException e) {
+                            LOGGER.warn(
+                                    "No maximum LSN recorded in the database; this may happen if there are no changes recorded in the change table yet or "
+                                            + "low activity database where the cdc clean up job periodically clears entries from the cdc tables. "
+                                            + "Otherwise, this may be an indication that the SQL Server Agent is not running. "
+                                            + "You should follow the documentation on how to configure SQL Server Agent running status query.");
+                            LOGGER.warn("Cannot query the status of the SQL Server Agent", e);
+                        }
+                        checkAgent = false;
+                    }
                     return false;
+                } else if (!checkAgent) {
+                    checkAgent = true;
                 }
                 // There is no change in the database
                 if (toLsn.compareTo(lastProcessedPosition.getCommitLsn()) <= 0
                         && streamingExecutionContext.getShouldIncreaseFromLsn()) {
                     LOGGER.debug("No change in the database");
+                    dispatcher.dispatchHeartbeatEvent(partition, offsetContext);
                     return false;
                 }
 
@@ -242,9 +276,11 @@ public class SqlServerStreamingChangeEventSource
                             schemaChangeCheckpoints.add(table);
                         }
                     }
+                    collectChangeTablesWithKnownStopLsn(partition, tables);
                 }
                 if (tablesSlot.get() == null) {
                     tablesSlot.set(getChangeTablesToQuery(partition, offsetContext, toLsn));
+                    collectChangeTablesWithKnownStopLsn(partition, tablesSlot.get());
                 }
                 try {
                     dataConnection.getChangesForTables(
@@ -262,9 +298,7 @@ public class SqlServerStreamingChangeEventSource
                                 for (int i = 0; i < tableCount; i++) {
                                     changeTables[i] =
                                             new SqlServerChangeTablePointer(
-                                                    tables[i],
-                                                    resultSets[i],
-                                                    connectorConfig.getSourceTimestampMode());
+                                                    tables[i], resultSets[i]);
                                     changeTables[i].next();
                                 }
 
@@ -419,17 +453,19 @@ public class SqlServerStreamingChangeEventSource
                                                     ? tableWithSmallestLsn.getData()
                                                     : null;
 
+                                    final ResultSet resultSet = tableWithSmallestLsn.getResultSet();
                                     offsetContext.setChangePosition(
                                             tableWithSmallestLsn.getChangePosition(), eventCount);
                                     offsetContext.event(
                                             tableWithSmallestLsn
                                                     .getChangeTable()
                                                     .getSourceTableId(),
-                                            connectorConfig
-                                                    .getSourceTimestampMode()
+                                            resultSet
                                                     .getTimestamp(
-                                                            clock,
-                                                            tableWithSmallestLsn.getResultSet()));
+                                                            resultSet
+                                                                    .getMetaData()
+                                                                    .getColumnCount())
+                                                    .toInstant());
 
                                     dispatcher.dispatchDataChangeEvent(
                                             partition,
@@ -440,7 +476,8 @@ public class SqlServerStreamingChangeEventSource
                                                     operation,
                                                     data,
                                                     dataNext,
-                                                    clock));
+                                                    clock,
+                                                    connectorConfig));
                                     tableWithSmallestLsn.next();
                                 }
                             });
@@ -460,6 +497,23 @@ public class SqlServerStreamingChangeEventSource
         }
 
         return true;
+    }
+
+    @Override
+    public SqlServerOffsetContext getOffsetContext() {
+        return effectiveOffset;
+    }
+
+    private void collectChangeTablesWithKnownStopLsn(
+            SqlServerPartition partition, SqlServerChangeTable[] tables) {
+        for (SqlServerChangeTable table : tables) {
+            if (table.getStopLsn().isAvailable()) {
+                LOGGER.info("The stop lsn of {} change table became known", table);
+                changeTablesWithKnownStopLsn
+                        .computeIfAbsent(partition, x -> new HashSet<>())
+                        .add(table);
+            }
+        }
     }
 
     private void commitTransaction() throws SQLException {
@@ -490,12 +544,14 @@ public class SqlServerStreamingChangeEventSource
         }
         dispatcher.dispatchSchemaChangeEvent(
                 partition,
+                offsetContext,
                 newTable.getSourceTableId(),
                 new SqlServerSchemaChangeEventEmitter(
                         partition,
                         offsetContext,
                         newTable,
                         tableSchema,
+                        schema,
                         SchemaChangeEventType.ALTER));
         newTable.setSourceTable(tableSchema);
     }
@@ -536,7 +592,7 @@ public class SqlServerStreamingChangeEventSource
                                         return true;
                                     } else {
                                         LOGGER.info(
-                                                "CDC is enabled for table {} but the table is not whitelisted by connector",
+                                                "CDC is enabled for table {} but the table is not on connector's table include list",
                                                 changeTable);
                                         return false;
                                     }
@@ -545,7 +601,7 @@ public class SqlServerStreamingChangeEventSource
 
         if (includeListChangeTables.isEmpty()) {
             LOGGER.warn(
-                    "No whitelisted table has enabled CDC, whitelisted table list does not contain any table with CDC enabled or no table match the white/blacklist filter(s)");
+                    "No table on connector's include list has enabled CDC, tables on include list do not contain any table with CDC enabled or no table match the include/exclude filter(s)");
         }
 
         final List<SqlServerChangeTable> tables = new ArrayList<>();
@@ -580,12 +636,14 @@ public class SqlServerStreamingChangeEventSource
                 offsetContext.event(currentTable.getSourceTableId(), Instant.now());
                 dispatcher.dispatchSchemaChangeEvent(
                         partition,
+                        offsetContext,
                         currentTable.getSourceTableId(),
                         new SqlServerSchemaChangeEventEmitter(
                                 partition,
                                 offsetContext,
                                 currentTable,
                                 dataConnection.getTableSchemaFromTable(databaseName, currentTable),
+                                schema,
                                 SchemaChangeEventType.CREATE));
             }
 
@@ -625,6 +683,55 @@ public class SqlServerStreamingChangeEventSource
                 databaseName, fromLsn, maxTransactionsPerIteration);
     }
 
+    @Override
+    public void commitOffset(Map<String, ?> sourcePartition, Map<String, ?> offset) {
+        Lsn commitLsn = Lsn.valueOf((String) offset.get("commit_lsn"));
+        synchronized (changeTablesWithKnownStopLsn) {
+            Optional<SqlServerPartition> optionalPartition =
+                    changeTablesWithKnownStopLsn.keySet().stream()
+                            .filter(p -> p.getSourcePartition().equals(sourcePartition))
+                            .findFirst();
+
+            if (!optionalPartition.isPresent()) {
+                return;
+            }
+
+            SqlServerPartition partition = optionalPartition.get();
+            Set<SqlServerChangeTable> partitionTables = changeTablesWithKnownStopLsn.get(partition);
+
+            List<SqlServerChangeTable> changeTablesToCompleteReadingFrom =
+                    partitionTables.stream()
+                            .filter(t -> t.getStopLsn().compareTo(commitLsn) < 0)
+                            .collect(Collectors.toList());
+
+            for (SqlServerChangeTable table : changeTablesToCompleteReadingFrom) {
+                Map<String, String> additionalData = new HashMap<>();
+                additionalData.put("connector_name", connectorConfig.getLogicalName());
+                additionalData.put("capture_instance", table.getCaptureInstance());
+                additionalData.put("start_lsn", table.getStartLsn().toString());
+                additionalData.put("stop_lsn", table.getStopLsn().toString());
+                additionalData.put("commit_lsn", commitLsn.toString());
+                additionalData.putAll(partition.getSourcePartition());
+
+                notificationService.notify(
+                        Notification.Builder.builder()
+                                .withId(UUID.randomUUID().toString())
+                                .withAggregateType("Capture Instance")
+                                .withType("COMPLETED")
+                                .withAdditionalData(additionalData)
+                                .withTimestamp(clock.currentTimeInMillis())
+                                .build());
+
+                partitionTables.remove(table);
+
+                LOGGER.info(
+                        "Complete reading from change table {} as the committed change lsn ({}) is greater than the table's stop lsn ({})",
+                        table,
+                        offset,
+                        table.getStopLsn().toString());
+            }
+        }
+    }
     /** expose control to the user to stop the connector. */
     protected void afterHandleLsn(SqlServerPartition partition, Lsn toLsn) {
         // do nothing

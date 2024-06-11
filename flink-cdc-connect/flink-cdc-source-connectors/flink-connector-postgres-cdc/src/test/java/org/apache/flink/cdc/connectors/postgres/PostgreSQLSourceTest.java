@@ -85,7 +85,7 @@ public class PostgreSQLSourceTest extends PostgresTestBase {
     // These tests only passes at the docker postgres:9.6
     private static final PostgreSQLContainer<?> POSTGRES_CONTAINER_OLD =
             new PostgreSQLContainer<>(
-                            DockerImageName.parse("debezium/postgres:9.6")
+                            DockerImageName.parse("debezium/postgres:9.6-alpine")
                                     .asCompatibleSubstituteFor("postgres"))
                     .withDatabaseName(DEFAULT_DB)
                     .withUsername("postgres")
@@ -236,7 +236,7 @@ public class PostgreSQLSourceTest extends PostgresTestBase {
             assertEquals(1, offsetState.list.size());
             String state = new String(offsetState.list.get(0), StandardCharsets.UTF_8);
             assertEquals("postgres_cdc_source", JsonPath.read(state, "$.sourcePartition.server"));
-            assertEquals("557", JsonPath.read(state, "$.sourceOffset.txId").toString());
+            assertEquals("553", JsonPath.read(state, "$.sourceOffset.txId").toString());
             assertEquals(
                     "true", JsonPath.read(state, "$.sourceOffset.last_snapshot_record").toString());
             assertEquals("true", JsonPath.read(state, "$.sourceOffset.snapshot").toString());

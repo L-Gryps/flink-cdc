@@ -20,7 +20,7 @@ package org.apache.flink.cdc.connectors.mysql.source.offset;
 import org.apache.flink.cdc.connectors.mysql.debezium.DebeziumUtils;
 import org.apache.flink.cdc.connectors.mysql.debezium.task.context.StatefulTaskContext;
 
-import io.debezium.connector.mysql.MySqlConnection;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 
 /** Utils for handling {@link BinlogOffset}. */
 public class BinlogOffsetUtils {

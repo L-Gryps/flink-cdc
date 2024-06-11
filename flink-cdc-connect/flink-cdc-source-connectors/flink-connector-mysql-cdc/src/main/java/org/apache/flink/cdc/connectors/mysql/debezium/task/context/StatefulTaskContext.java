@@ -18,7 +18,7 @@
 package org.apache.flink.cdc.connectors.mysql.debezium.task.context;
 
 import org.apache.flink.cdc.connectors.mysql.debezium.DebeziumUtils;
-import org.apache.flink.cdc.connectors.mysql.debezium.EmbeddedFlinkDatabaseHistory;
+import org.apache.flink.cdc.connectors.mysql.debezium.EmbeddedFlinkSchemaHistory;
 import org.apache.flink.cdc.connectors.mysql.debezium.dispatcher.EventDispatcherImpl;
 import org.apache.flink.cdc.connectors.mysql.debezium.dispatcher.SignalEventDispatcher;
 import org.apache.flink.cdc.connectors.mysql.source.config.MySqlSourceConfig;
@@ -31,13 +31,14 @@ import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.mysql.GtidSet;
 import io.debezium.connector.mysql.GtidUtils;
 import io.debezium.connector.mysql.MySqlChangeEventSourceMetricsFactory;
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTopicSelector;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
+import io.debezium.connector.mysql.strategy.mysql.MySqlGtidSet;
 import io.debezium.data.Envelope;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
@@ -48,11 +49,11 @@ import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.Offsets;
 import io.debezium.relational.TableId;
-import io.debezium.schema.DataCollectionId;
+import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.schema.TopicSelector;
+import io.debezium.spi.schema.DataCollectionId;
 import io.debezium.util.Clock;
 import io.debezium.util.Collect;
-import io.debezium.util.SchemaNameAdjuster;
 import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,17 +114,18 @@ public class StatefulTaskContext {
         // initial stateful objects
         final boolean tableIdCaseInsensitive = connection.isTableIdCaseSensitive();
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
-        EmbeddedFlinkDatabaseHistory.registerHistory(
+        EmbeddedFlinkSchemaHistory.registerHistory(
                 sourceConfig
                         .getDbzConfiguration()
-                        .getString(EmbeddedFlinkDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                        .getString(EmbeddedFlinkSchemaHistory.DATABASE_HISTORY_INSTANCE_NAME),
                 mySqlSplit.getTableSchemas().values());
 
         Optional.ofNullable(databaseSchema).ifPresent(MySqlDatabaseSchema::close);
         this.databaseSchema =
                 DebeziumUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
 
-        this.mySqlPartition = new MySqlPartition(connectorConfig.getLogicalName());
+        this.mySqlPartition =
+                new MySqlPartition(connectorConfig.getLogicalName(), connection.database());
 
         this.offsetContext =
                 loadStartingOffsetState(new MySqlOffsetContext.Loader(connectorConfig), mySqlSplit);
@@ -177,7 +179,8 @@ public class StatefulTaskContext {
                 changeEventSourceMetricsFactory.getStreamingMetrics(
                         taskContext, queue, metadataProvider);
         this.errorHandler =
-                new MySqlErrorHandler(connectorConfig, queue, taskContext, sourceConfig);
+                new MySqlErrorHandler(
+                        connectorConfig, queue, taskContext, sourceConfig, errorHandler);
     }
 
     private void validateAndLoadDatabaseHistory(
@@ -225,8 +228,8 @@ public class StatefulTaskContext {
             return true; // start at beginning ...
         }
 
-        String availableGtidStr = connection.knownGtidSet();
-        if (availableGtidStr == null || availableGtidStr.trim().isEmpty()) {
+        GtidSet availableGtidStr = connection.knownGtidSet();
+        if (availableGtidStr == null || availableGtidStr.isEmpty()) {
             // Last offsets had GTIDs but the server does not use them ...
             LOG.warn(
                     "Connector used GTIDs previously, but MySQL does not know of any GTIDs or they are not enabled");
@@ -234,7 +237,7 @@ public class StatefulTaskContext {
         }
 
         // Get the GTID set that is available in the server ...
-        GtidSet availableGtidSet = new GtidSet(availableGtidStr);
+        MySqlGtidSet availableGtidSet = new MySqlGtidSet(availableGtidStr.toString());
 
         // GTIDs are enabled
         LOG.info("Merging server GTID set {} with restored GTID set {}", availableGtidSet, gtidStr);
@@ -244,7 +247,7 @@ public class StatefulTaskContext {
         // the GTID. This is done to address the issue of being unable to recover from a checkpoint
         // in certain startup
         // modes.
-        GtidSet gtidSet = GtidUtils.fixRestoredGtidSet(availableGtidSet, new GtidSet(gtidStr));
+        GtidSet gtidSet = GtidUtils.fixRestoredGtidSet(availableGtidSet, new MySqlGtidSet(gtidStr));
         LOG.info("Merged GTID set is {}", gtidSet);
 
         if (gtidSet.isContainedWithin(availableGtidSet)) {

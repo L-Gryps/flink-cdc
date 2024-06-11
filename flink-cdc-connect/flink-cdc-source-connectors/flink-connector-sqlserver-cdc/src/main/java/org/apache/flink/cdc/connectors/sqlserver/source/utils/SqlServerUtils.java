@@ -23,6 +23,7 @@ import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.sqlserver.Lsn;
 import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.connector.sqlserver.SqlServerConnection;
@@ -34,11 +35,10 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.connect.source.SourceRecord;
-
-import javax.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -280,7 +280,7 @@ public class SqlServerUtils {
                 connectorConfig,
                 connection.getDefaultValueConverter(),
                 valueConverters,
-                topicSelector,
+                connectorConfig.getTopicNamingStrategy(CommonConnectorConfig.TOPIC_NAMING_STRATEGY),
                 schemaNameAdjuster);
     }
 

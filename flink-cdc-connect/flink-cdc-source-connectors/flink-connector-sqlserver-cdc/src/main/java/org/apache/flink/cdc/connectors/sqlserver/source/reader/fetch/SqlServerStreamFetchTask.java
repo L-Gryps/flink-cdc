@@ -29,12 +29,16 @@ import io.debezium.DebeziumException;
 import io.debezium.connector.sqlserver.Lsn;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
+import io.debezium.connector.sqlserver.SqlServerConnectorTask;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
 import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource;
+import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
+import io.debezium.pipeline.notification.NotificationService;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
+import io.debezium.schema.SchemaFactory;
 import io.debezium.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +61,14 @@ public class SqlServerStreamFetchTask implements FetchTask<SourceSplitBase> {
                 (SqlServerSourceFetchTaskContext) context;
         sourceFetchContext.getOffsetContext().preSnapshotCompletion();
         taskRunning = true;
+        NotificationService<SqlServerPartition, SqlServerOffsetContext> notificationService =
+                new NotificationService<>(
+                        new SqlServerConnectorTask().getNotificationChannels(),
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        SchemaFactory.get(),
+                        (record) -> {
+                            sourceFetchContext.getQueue().enqueue(new DataChangeEvent(record));
+                        });
         StreamSplitReadTask redoLogSplitReadTask =
                 new StreamSplitReadTask(
                         sourceFetchContext.getDbzConnectorConfig(),
@@ -65,9 +77,11 @@ public class SqlServerStreamFetchTask implements FetchTask<SourceSplitBase> {
                         sourceFetchContext.getDispatcher(),
                         sourceFetchContext.getErrorHandler(),
                         sourceFetchContext.getDatabaseSchema(),
-                        split);
+                        split,
+                        notificationService);
         RedoLogSplitChangeEventSourceContext changeEventSourceContext =
                 new RedoLogSplitChangeEventSourceContext();
+        redoLogSplitReadTask.init(sourceFetchContext.getOffsetContext());
         redoLogSplitReadTask.execute(
                 changeEventSourceContext,
                 sourceFetchContext.getPartition(),
@@ -108,7 +122,9 @@ public class SqlServerStreamFetchTask implements FetchTask<SourceSplitBase> {
                 JdbcSourceEventDispatcher<SqlServerPartition> dispatcher,
                 ErrorHandler errorHandler,
                 SqlServerDatabaseSchema schema,
-                StreamSplit lsnSplit) {
+                StreamSplit lsnSplit,
+                NotificationService<SqlServerPartition, SqlServerOffsetContext>
+                        notificationService) {
             super(
                     connectorConfig,
                     connection,
@@ -116,7 +132,8 @@ public class SqlServerStreamFetchTask implements FetchTask<SourceSplitBase> {
                     dispatcher,
                     errorHandler,
                     Clock.system(),
-                    schema);
+                    schema,
+                    notificationService);
             this.lsnSplit = lsnSplit;
             this.dispatcher = dispatcher;
             this.errorHandler = errorHandler;
@@ -170,8 +187,25 @@ public class SqlServerStreamFetchTask implements FetchTask<SourceSplitBase> {
     private class RedoLogSplitChangeEventSourceContext
             implements ChangeEventSource.ChangeEventSourceContext {
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return taskRunning;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

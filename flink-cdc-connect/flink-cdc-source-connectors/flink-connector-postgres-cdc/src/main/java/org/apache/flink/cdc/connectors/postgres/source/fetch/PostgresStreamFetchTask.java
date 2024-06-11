@@ -41,11 +41,11 @@ import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
+import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -94,6 +94,7 @@ public class PostgresStreamFetchTask implements FetchTask<SourceSplitBase> {
                         split);
         StoppableChangeEventSourceContext changeEventSourceContext =
                 new StoppableChangeEventSourceContext();
+        streamSplitReadTask.init(sourceFetchContext.getOffsetContext());
         streamSplitReadTask.execute(
                 changeEventSourceContext,
                 sourceFetchContext.getPartition(),
@@ -157,7 +158,7 @@ public class PostgresStreamFetchTask implements FetchTask<SourceSplitBase> {
                         "Committing offset {} for {}",
                         Lsn.valueOf(lastCommitLsn),
                         streamSplitReadTask.streamSplit);
-                streamSplitReadTask.commitOffset(offsets);
+                streamSplitReadTask.commitOffset(Collections.emptyMap(), offsets);
             }
         }
     }

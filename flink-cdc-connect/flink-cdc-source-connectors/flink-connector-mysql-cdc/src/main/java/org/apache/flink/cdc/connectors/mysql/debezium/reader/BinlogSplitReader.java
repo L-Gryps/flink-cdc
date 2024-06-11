@@ -40,12 +40,11 @@ import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -119,6 +118,7 @@ public class BinlogSplitReader implements DebeziumReader<SourceRecords, MySqlSpl
         executorService.submit(
                 () -> {
                     try {
+                        binlogSplitReadTask.init(statefulTaskContext.getOffsetContext());
                         binlogSplitReadTask.execute(
                                 changeEventSourceContext,
                                 statefulTaskContext.getMySqlPartition(),

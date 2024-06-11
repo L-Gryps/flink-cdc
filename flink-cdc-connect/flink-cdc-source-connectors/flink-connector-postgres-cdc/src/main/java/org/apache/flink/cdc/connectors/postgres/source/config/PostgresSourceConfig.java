@@ -22,8 +22,7 @@ import org.apache.flink.cdc.connectors.base.options.StartupOptions;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.List;

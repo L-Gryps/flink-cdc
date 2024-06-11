@@ -20,8 +20,7 @@ package org.apache.flink.cdc.connectors.mysql.source.assigners.state;
 import org.apache.flink.cdc.connectors.mysql.source.assigners.MySqlChunkSplitter;
 
 import io.debezium.relational.TableId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 

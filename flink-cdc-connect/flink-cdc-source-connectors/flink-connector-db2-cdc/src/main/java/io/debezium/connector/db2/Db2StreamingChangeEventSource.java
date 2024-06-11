@@ -10,6 +10,7 @@ import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.ChangeTableResultSet;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.schema.DatabaseSchema;
 import io.debezium.schema.SchemaChangeEvent.SchemaChangeEventType;
@@ -86,6 +87,7 @@ public class Db2StreamingChangeEventSource
     private final Db2DatabaseSchema schema;
     private final Duration pollInterval;
     private final Db2ConnectorConfig connectorConfig;
+    private Db2OffsetContext effectiveOffsetContext;
 
     public Db2StreamingChangeEventSource(
             Db2ConnectorConfig connectorConfig,
@@ -103,6 +105,14 @@ public class Db2StreamingChangeEventSource
         this.clock = clock;
         this.schema = schema;
         this.pollInterval = connectorConfig.getPollInterval();
+    }
+
+    public void init(Db2OffsetContext offsetContext) {
+
+        this.effectiveOffsetContext =
+                offsetContext != null
+                        ? offsetContext
+                        : new Db2OffsetContext(connectorConfig, TxLogPosition.NULL, false, false);
     }
 
     @Override
@@ -169,7 +179,7 @@ public class Db2StreamingChangeEventSource
                     final Db2ChangeTable[] tables = getCdcTablesToQuery(partition, offsetContext);
                     tablesSlot.set(tables);
                     for (Db2ChangeTable table : tables) {
-                        if (table.getStartLsn().isBetween(fromLsn, currentMaxLsn)) {
+                        if (table.getStartLsn().isBetween(fromLsn, currentMaxLsn.increment())) {
                             LOGGER.info("Schema will be changed for {}", table);
                             schemaChangeCheckpoints.add(table);
                         }
@@ -338,7 +348,8 @@ public class Db2StreamingChangeEventSource
                                                     operation,
                                                     data,
                                                     dataNext,
-                                                    clock));
+                                                    clock,
+                                                    connectorConfig));
                                     tableWithSmallestLsn.next();
                                 }
                             });
@@ -350,10 +361,22 @@ public class Db2StreamingChangeEventSource
                 } catch (SQLException e) {
                     tablesSlot.set(processErrorFromChangeTableQuery(e, tablesSlot.get()));
                 }
+
+                if (context.isPaused()) {
+                    LOGGER.info("Streaming will now pause");
+                    context.streamingPaused();
+                    context.waitSnapshotCompletion();
+                    LOGGER.info("Streaming resumed");
+                }
             }
         } catch (Exception e) {
             errorHandler.setProducerThrowable(e);
         }
+    }
+
+    @Override
+    public Db2OffsetContext getOffsetContext() {
+        return effectiveOffsetContext;
     }
 
     private void migrateTable(
@@ -363,15 +386,21 @@ public class Db2StreamingChangeEventSource
             throws InterruptedException, SQLException {
         final Db2ChangeTable newTable = schemaChangeCheckpoints.poll();
         LOGGER.info("Migrating schema to {}", newTable);
+        Table tableSchema = metadataConnection.getTableSchemaFromTable(newTable);
+        offsetContext.event(newTable.getSourceTableId(), Instant.now());
         dispatcher.dispatchSchemaChangeEvent(
                 partition,
+                offsetContext,
                 newTable.getSourceTableId(),
                 new Db2SchemaChangeEventEmitter(
                         partition,
                         offsetContext,
                         newTable,
-                        metadataConnection.getTableSchemaFromTable(newTable),
+                        tableSchema,
+                        schema,
                         SchemaChangeEventType.ALTER));
+
+        newTable.setSourceTable(tableSchema);
     }
 
     private Db2ChangeTable[] processErrorFromChangeTableQuery(
@@ -450,12 +479,14 @@ public class Db2StreamingChangeEventSource
                 // obtained from change table
                 dispatcher.dispatchSchemaChangeEvent(
                         partition,
+                        offsetContext,
                         currentTable.getSourceTableId(),
                         new Db2SchemaChangeEventEmitter(
                                 partition,
                                 offsetContext,
                                 currentTable,
                                 dataConnection.getTableSchemaFromTable(currentTable),
+                                schema,
                                 SchemaChangeEventType.CREATE));
             }
             tables.add(currentTable);
@@ -476,7 +507,7 @@ public class Db2StreamingChangeEventSource
     private static class ChangeTablePointer
             extends ChangeTableResultSet<Db2ChangeTable, TxLogPosition> {
 
-        public ChangeTablePointer(Db2ChangeTable changeTable, ResultSet resultSet) {
+        ChangeTablePointer(Db2ChangeTable changeTable, ResultSet resultSet) {
             super(changeTable, resultSet, COL_DATA);
         }
 

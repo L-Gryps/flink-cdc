@@ -21,11 +21,11 @@ import org.apache.flink.cdc.connectors.base.source.meta.offset.Offset;
 
 import io.debezium.connector.postgresql.SourceInfo;
 import io.debezium.connector.postgresql.connection.Lsn;
+import io.debezium.connector.postgresql.connection.ReplicationMessage;
 import io.debezium.time.Conversions;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
-
-import javax.annotation.Nullable;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -37,16 +37,17 @@ public class PostgresOffset extends Offset {
     private static final Logger LOG = org.slf4j.LoggerFactory.getLogger(PostgresOffset.class);
 
     public static final PostgresOffset INITIAL_OFFSET =
-            new PostgresOffset(Lsn.INVALID_LSN.asLong(), null, Instant.MIN);
+            new PostgresOffset(Lsn.INVALID_LSN.asLong(), null, Instant.MIN, null);
     public static final PostgresOffset NO_STOPPING_OFFSET =
-            new PostgresOffset(Lsn.NO_STOPPING_LSN.asLong(), null, Instant.MAX);
+            new PostgresOffset(Lsn.NO_STOPPING_LSN.asLong(), null, Instant.MAX, null);
 
     // used by PostgresOffsetFactory
     PostgresOffset(Map<String, String> offset) {
         this.offset = offset;
     }
 
-    PostgresOffset(Long lsn, Long txId, Instant lastCommitTs) {
+    PostgresOffset(
+            Long lsn, Long txId, Instant lastCommitTs, ReplicationMessage.Operation messageType) {
         Map<String, String> offsetMap = new HashMap<>();
         // keys are from io.debezium.connector.postgresql.PostgresOffsetContext.Loader.load
         offsetMap.put(SourceInfo.LSN_KEY, lsn.toString());
@@ -57,6 +58,9 @@ public class PostgresOffset extends Offset {
             offsetMap.put(
                     SourceInfo.TIMESTAMP_USEC_KEY,
                     String.valueOf(Conversions.toEpochMicros(lastCommitTs)));
+        }
+        if (messageType != null) {
+            offsetMap.put(SourceInfo.MSG_TYPE_KEY, messageType.toString());
         }
         this.offset = offsetMap;
     }

@@ -45,10 +45,10 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.ExceptionUtils;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlPartition;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.relational.TableId;
@@ -862,7 +862,8 @@ public class BinlogSplitReaderTest extends MySqlSourceTestBase {
             Map<TableId, TableChanges.TableChange> tableSchemas =
                     TableDiscoveryUtils.discoverSchemaForCapturedTables(
                             new MySqlPartition(
-                                    sourceConfig.getMySqlConnectorConfig().getLogicalName()),
+                                    sourceConfig.getMySqlConnectorConfig().getLogicalName(),
+                                    jdbc.database()),
                             sourceConfig,
                             jdbc);
             return MySqlBinlogSplit.fillTableSchemas(

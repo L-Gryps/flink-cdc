@@ -24,7 +24,7 @@ limitations under the License.
         <version>${revision}</version>
     </parent>
     <properties>
-        <xdb.version>19.3.0.0</xdb.version>
+        <oracle.driver.version>21.6.0.0</oracle.driver.version>
     </properties>
     <modelVersion>4.0.0</modelVersion>
 
@@ -85,15 +85,21 @@ limitations under the License.
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
+            <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
-            <version>19.3.0.0</version>
+            <version>${oracle.driver.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.oracle.database.xml</groupId>
             <artifactId>xdb</artifactId>
-            <version>${xdb.version}</version>
+            <version>${oracle.driver.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xmlparserv2</artifactId>
+            <version>${oracle.driver.version}</version>
         </dependency>
 
         <dependency>

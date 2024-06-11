@@ -21,9 +21,7 @@ import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerValueConverters;
-import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
 import org.slf4j.Logger;
@@ -38,7 +36,7 @@ public class SqlServerConnectionUtils {
     private static final Logger LOG = LoggerFactory.getLogger(SqlServerConnectionUtils.class);
 
     public static SqlServerConnection createSqlServerConnection(
-            RelationalDatabaseConnectorConfig connectorConfig) {
+            SqlServerConnectorConfig connectorConfig) {
         Configuration dbzConnectorConfig = connectorConfig.getJdbcConfig();
 
         final SqlServerValueConverters valueConverters =
@@ -47,12 +45,10 @@ public class SqlServerConnectionUtils {
                         connectorConfig.getTemporalPrecisionMode(),
                         connectorConfig.binaryHandlingMode());
         return new SqlServerConnection(
-                JdbcConfiguration.adapt(dbzConnectorConfig),
-                ((SqlServerConnectorConfig) connectorConfig).getSourceTimestampMode(),
+                connectorConfig,
                 valueConverters,
-                SqlServerConnectionUtils.class::getClassLoader,
                 connectorConfig.getSkippedOperations(),
-                false);
+                connectorConfig.useSingleDatabase());
     }
 
     public static List<TableId> listTables(

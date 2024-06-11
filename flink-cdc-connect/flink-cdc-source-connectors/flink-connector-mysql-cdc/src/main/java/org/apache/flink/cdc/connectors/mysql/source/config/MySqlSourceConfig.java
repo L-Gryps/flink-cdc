@@ -24,8 +24,7 @@ import org.apache.flink.table.catalog.ObjectPath;
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Serializable;
 import java.time.Duration;

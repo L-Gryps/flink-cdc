@@ -26,14 +26,18 @@ import org.apache.flink.cdc.connectors.base.source.reader.external.AbstractScanF
 
 import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlConnectorTask;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlPartition;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.heartbeat.Heartbeat;
+import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.notification.NotificationService;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
+import io.debezium.pipeline.source.SnapshottingTask;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
@@ -42,11 +46,13 @@ import io.debezium.relational.RelationalSnapshotChangeEventSource;
 import io.debezium.relational.SnapshotChangeRecordEmitter;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.SchemaFactory;
 import io.debezium.util.Clock;
 import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +60,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.cdc.connectors.base.experimental.utils.MySqlConnectionUtils.createMySqlConnection;
 
@@ -68,6 +77,37 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
     protected void executeDataSnapshot(Context context) throws Exception {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
         MySqlSnapshotSplitReadTask snapshotSplitReadTask =
+                getSnapshotSplitReadTask(sourceFetchContext);
+        MysqlSnapshotSplitChangeEventSourceContext changeEventSourceContext =
+                new MysqlSnapshotSplitChangeEventSourceContext();
+        SnapshottingTask snapshottingTask =
+                snapshotSplitReadTask.getSnapshottingTask(
+                        sourceFetchContext.getPartition(), sourceFetchContext.getOffsetContext());
+        SnapshotResult<MySqlOffsetContext> snapshotResult =
+                snapshotSplitReadTask.execute(
+                        changeEventSourceContext,
+                        sourceFetchContext.getPartition(),
+                        sourceFetchContext.getOffsetContext(),
+                        snapshottingTask);
+
+        if (!snapshotResult.isCompletedOrSkipped()) {
+            taskRunning = false;
+            throw new IllegalStateException(
+                    String.format("Read snapshot for mysql split %s fail", snapshotResult));
+        }
+    }
+
+    private @NotNull MySqlSnapshotSplitReadTask getSnapshotSplitReadTask(
+            MySqlSourceFetchTaskContext sourceFetchContext) {
+        NotificationService<MySqlPartition, MySqlOffsetContext> notificationService =
+                new NotificationService<>(
+                        new MySqlConnectorTask().getNotificationChannels(),
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        SchemaFactory.get(),
+                        (recore) -> {
+                            sourceFetchContext.getQueue().enqueue(new DataChangeEvent(recore));
+                        });
+        MySqlSnapshotSplitReadTask snapshotSplitReadTask =
                 new MySqlSnapshotSplitReadTask(
                         sourceFetchContext.getDbzConnectorConfig(),
                         sourceFetchContext.getOffsetContext(),
@@ -75,21 +115,9 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
                         sourceFetchContext.getDatabaseSchema(),
                         sourceFetchContext.getConnection(),
                         sourceFetchContext.getDispatcher(),
-                        snapshotSplit);
-        MysqlSnapshotSplitChangeEventSourceContext changeEventSourceContext =
-                new MysqlSnapshotSplitChangeEventSourceContext();
-
-        SnapshotResult<MySqlOffsetContext> snapshotResult =
-                snapshotSplitReadTask.execute(
-                        changeEventSourceContext,
-                        sourceFetchContext.getPartition(),
-                        sourceFetchContext.getOffsetContext());
-
-        if (!snapshotResult.isCompletedOrSkipped()) {
-            taskRunning = false;
-            throw new IllegalStateException(
-                    String.format("Read snapshot for mysql split %s fail", snapshotResult));
-        }
+                        snapshotSplit,
+                        notificationService);
+        return snapshotSplitReadTask;
     }
 
     @Override
@@ -119,7 +147,9 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
         // task to read binlog and backfill for current split
         return new MySqlBinlogSplitReadTask(
                 new MySqlConnectorConfig(dezConf),
-                createMySqlConnection(context.getSourceConfig().getDbzConfiguration()),
+                createMySqlConnection(
+                        context.getSourceConfig().getDbzConfiguration(),
+                        new MySqlConnectorConfig(dezConf)),
                 context.getDispatcher(),
                 context.getErrorHandler(),
                 context.getTaskContext(),
@@ -152,8 +182,9 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
                 MySqlDatabaseSchema databaseSchema,
                 MySqlConnection jdbcConnection,
                 JdbcSourceEventDispatcher<MySqlPartition> dispatcher,
-                SnapshotSplit snapshotSplit) {
-            super(connectorConfig, snapshotProgressListener);
+                SnapshotSplit snapshotSplit,
+                NotificationService<MySqlPartition, MySqlOffsetContext> notificationService) {
+            super(connectorConfig, snapshotProgressListener, notificationService);
             this.offsetContext = previousOffset;
             this.connectorConfig = connectorConfig;
             this.databaseSchema = databaseSchema;
@@ -168,12 +199,12 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
         public SnapshotResult<MySqlOffsetContext> execute(
                 ChangeEventSourceContext context,
                 MySqlPartition partition,
-                MySqlOffsetContext previousOffset)
+                MySqlOffsetContext previousOffset,
+                SnapshottingTask snapshottingTask)
                 throws InterruptedException {
-            SnapshottingTask snapshottingTask = getSnapshottingTask(partition, previousOffset);
             final MySqlSnapshotContext ctx;
             try {
-                ctx = prepare(partition);
+                ctx = prepare(partition, snapshottingTask.isOnDemand());
             } catch (Exception e) {
                 LOG.error("Failed to initialize snapshot context.", e);
                 throw new RuntimeException(e);
@@ -203,22 +234,36 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
         }
 
         @Override
-        protected SnapshottingTask getSnapshottingTask(
+        public SnapshottingTask getSnapshottingTask(
                 MySqlPartition partition, MySqlOffsetContext previousOffset) {
-            return new SnapshottingTask(false, true);
+            List<String> dataCollectionsToBeSnapshotted =
+                    connectorConfig.getDataCollectionsToBeSnapshotted();
+            Map<String, String> snapshotSelectOverridesByTable =
+                    connectorConfig.getSnapshotSelectOverridesByTable().entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            e -> e.getKey().identifier(), Map.Entry::getValue));
+            return new SnapshottingTask(
+                    false,
+                    true,
+                    dataCollectionsToBeSnapshotted,
+                    snapshotSelectOverridesByTable,
+                    false);
         }
 
         @Override
-        protected MySqlSnapshotContext prepare(MySqlPartition partition) throws Exception {
-            return new MySqlSnapshotContext(partition);
+        protected MySqlSnapshotContext prepare(MySqlPartition partition, boolean onDemand)
+                throws Exception {
+            return new MySqlSnapshotContext(partition, onDemand);
         }
 
         private static class MySqlSnapshotContext
                 extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext<
                         MySqlPartition, MySqlOffsetContext> {
 
-            public MySqlSnapshotContext(MySqlPartition partition) throws SQLException {
-                super(partition, "");
+            public MySqlSnapshotContext(MySqlPartition partition, boolean onDemand)
+                    throws SQLException {
+                super(partition, "", onDemand);
             }
         }
 
@@ -275,8 +320,7 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
 
                 while (rs.next()) {
                     rows++;
-                    final Object[] row =
-                            jdbcConnection.rowToArray(table, databaseSchema, rs, columnArray);
+                    final Object[] row = jdbcConnection.rowToArray(table, rs, columnArray);
                     if (logTimer.expired()) {
                         long stop = clock.currentTimeInMillis();
                         LOG.info(
@@ -308,7 +352,7 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
                 MySqlSnapshotContext snapshotContext, TableId tableId, Object[] row) {
             snapshotContext.offset.event(tableId, clock.currentTime());
             return new SnapshotChangeRecordEmitter<>(
-                    snapshotContext.partition, snapshotContext.offset, row, clock);
+                    snapshotContext.partition, snapshotContext.offset, row, clock, connectorConfig);
         }
 
         private Threads.Timer getTableScanLogTimer() {
@@ -328,8 +372,25 @@ public class MySqlScanFetchTask extends AbstractScanFetchTask {
         }
 
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return taskRunning;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

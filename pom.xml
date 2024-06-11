@@ -59,7 +59,7 @@ limitations under the License.
 
     <properties>
         <revision>3.1-SNAPSHOT</revision>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -72,7 +72,7 @@ limitations under the License.
         <flink.version>1.18.0</flink.version>
         <flink.major.version>1.18</flink.major.version>
         <flink.shaded.version>17.0</flink.shaded.version>
-        <debezium.version>1.9.8.Final</debezium.version>
+        <debezium.version>2.5.4.Final</debezium.version>
         <tikv.version>3.2.0</tikv.version>
         <geometry.version>2.2.0</geometry.version>
         <testcontainers.version>1.18.3</testcontainers.version>
@@ -93,6 +93,7 @@ limitations under the License.
         at the same time minimum 3.1.x Janino version passing Flink tests without WAs is 3.1.10,
         more details are in FLINK-27995 -->
         <janino.version>3.1.10</janino.version>
+        <jakarta.annotation.version>2.1.1</jakarta.annotation.version>
     </properties>
 
     <dependencyManagement>
@@ -116,6 +117,12 @@ limitations under the License.
                 <groupId>org.codehaus.janino</groupId>
                 <artifactId>janino</artifactId>
                 <version>${janino.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <version>${jakarta.annotation.version}</version>
             </dependency>
 
             <dependency>
@@ -561,6 +568,7 @@ limitations under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
                 <executions>
                     <execution>
                         <id>shade-flink</id>
@@ -803,6 +811,71 @@ limitations under the License.
                                 <phase>none</phase>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>java11</id>
+            <activation>
+                <jdk>[11,)</jdk>
+            </activation>
+
+            <properties>
+                <surefire.excludedGroups.jdk>org.apache.flink.testutils.junit.FailsOnJava11</surefire.excludedGroups.jdk>
+            </properties>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>build-helper-maven-plugin</artifactId>
+                            <version>1.7</version>
+                        </plugin>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-surefire-plugin</artifactId>
+                            <configuration>
+                                <excludedGroups>
+                                    ${surefire.excludedGroups.github-actions},
+                                    ${surefire.excludedGroups.adaptive-scheduler},
+                                    ${surefire.excludedGroups.jdk},
+                                </excludedGroups>
+                            </configuration>
+                        </plugin>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-javadoc-plugin</artifactId>
+                            <configuration>
+                                <additionalJOptions>
+                                    <additionalJOption>--add-exports=java.base/sun.net.util=ALL-UNNAMED</additionalJOption>
+                                    <additionalJOption>--add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED</additionalJOption>
+                                </additionalJOptions>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>java11-target</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <source>11</source>
+                            <target>11</target>
+                            <compilerArgs combine.children="append">
+                                <arg>--add-exports=java.base/sun.net.util=ALL-UNNAMED</arg>
+                                <arg>--add-exports=java.management/sun.management=ALL-UNNAMED</arg>
+                                <arg>--add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED</arg>
+                                <arg>--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

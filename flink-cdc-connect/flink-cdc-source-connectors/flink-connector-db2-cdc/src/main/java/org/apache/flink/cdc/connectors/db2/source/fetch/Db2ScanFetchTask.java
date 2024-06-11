@@ -27,12 +27,16 @@ import io.debezium.DebeziumException;
 import io.debezium.config.Configuration;
 import io.debezium.connector.db2.Db2Connection;
 import io.debezium.connector.db2.Db2ConnectorConfig;
+import io.debezium.connector.db2.Db2ConnectorTask;
 import io.debezium.connector.db2.Db2DatabaseSchema;
 import io.debezium.connector.db2.Db2OffsetContext;
 import io.debezium.connector.db2.Db2Partition;
 import io.debezium.heartbeat.Heartbeat;
+import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
+import io.debezium.pipeline.notification.NotificationService;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
+import io.debezium.pipeline.source.SnapshottingTask;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
@@ -41,6 +45,7 @@ import io.debezium.relational.RelationalSnapshotChangeEventSource;
 import io.debezium.relational.SnapshotChangeRecordEmitter;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.SchemaFactory;
 import io.debezium.util.Clock;
 import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
@@ -53,6 +58,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.cdc.connectors.db2.source.utils.Db2Utils.buildSplitScanQuery;
 import static org.apache.flink.cdc.connectors.db2.source.utils.Db2Utils.readTableSplitDataStatement;
@@ -68,6 +76,38 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
     protected void executeDataSnapshot(Context context) throws Exception {
         Db2SourceFetchTaskContext sourceFetchContext = (Db2SourceFetchTaskContext) context;
         Db2SnapshotSplitReadTask snapshotSplitReadTask =
+                getSnapshotSplitReadTask(sourceFetchContext);
+        Db2SnapshotSplitChangeEventSourceContext changeEventSourceContext =
+                new Db2SnapshotSplitChangeEventSourceContext();
+        SnapshottingTask snapshottingTask =
+                snapshotSplitReadTask.getSnapshottingTask(
+                        sourceFetchContext.getPartition(), sourceFetchContext.getOffsetContext());
+        SnapshotResult<Db2OffsetContext> snapshotResult =
+                snapshotSplitReadTask.execute(
+                        changeEventSourceContext,
+                        sourceFetchContext.getPartition(),
+                        sourceFetchContext.getOffsetContext(),
+                        snapshottingTask);
+        // execute stream read task
+        if (!snapshotResult.isCompletedOrSkipped()) {
+            taskRunning = false;
+            throw new IllegalStateException(
+                    String.format("Read snapshot for Db2 split %s fail", snapshotSplit));
+        }
+    }
+
+    private Db2SnapshotSplitReadTask getSnapshotSplitReadTask(
+            Db2SourceFetchTaskContext sourceFetchContext) {
+        NotificationService<Db2Partition, Db2OffsetContext> notificationService =
+                new NotificationService<>(
+                        new Db2ConnectorTask().getNotificationChannels(),
+                        sourceFetchContext.getDbzConnectorConfig(),
+                        SchemaFactory.get(),
+                        (record) -> {
+                            sourceFetchContext.getQueue().enqueue(new DataChangeEvent(record));
+                        });
+
+        Db2SnapshotSplitReadTask snapshotSplitReadTask =
                 new Db2SnapshotSplitReadTask(
                         sourceFetchContext.getDbzConnectorConfig(),
                         sourceFetchContext.getOffsetContext(),
@@ -76,20 +116,9 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
                         sourceFetchContext.getConnection(),
                         sourceFetchContext.getDispatcher(),
                         sourceFetchContext.getSnapshotReceiver(),
-                        snapshotSplit);
-        Db2SnapshotSplitChangeEventSourceContext changeEventSourceContext =
-                new Db2SnapshotSplitChangeEventSourceContext();
-        SnapshotResult<Db2OffsetContext> snapshotResult =
-                snapshotSplitReadTask.execute(
-                        changeEventSourceContext,
-                        sourceFetchContext.getPartition(),
-                        sourceFetchContext.getOffsetContext());
-        // execute stream read task
-        if (!snapshotResult.isCompletedOrSkipped()) {
-            taskRunning = false;
-            throw new IllegalStateException(
-                    String.format("Read snapshot for Db2 split %s fail", snapshotSplit));
-        }
+                        snapshotSplit,
+                        notificationService);
+        return snapshotSplitReadTask;
     }
 
     @Override
@@ -103,6 +132,7 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
 
         final StreamSplitReadTask backfillBinlogReadTask =
                 createBackFillLsnSplitReadTask(backfillStreamSplit, sourceFetchContext);
+        backfillBinlogReadTask.init(streamOffsetContext);
         backfillBinlogReadTask.execute(
                 new Db2SnapshotSplitChangeEventSourceContext(),
                 sourceFetchContext.getPartition(),
@@ -165,8 +195,9 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
                 Db2Connection jdbcConnection,
                 JdbcSourceEventDispatcher<Db2Partition> dispatcher,
                 EventDispatcher.SnapshotReceiver<Db2Partition> snapshotReceiver,
-                SnapshotSplit snapshotSplit) {
-            super(connectorConfig, snapshotProgressListener);
+                SnapshotSplit snapshotSplit,
+                NotificationService<Db2Partition, Db2OffsetContext> notificationService) {
+            super(connectorConfig, snapshotProgressListener, notificationService);
             this.offsetContext = previousOffset;
             this.connectorConfig = connectorConfig;
             this.databaseSchema = databaseSchema;
@@ -182,12 +213,12 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
         public SnapshotResult<Db2OffsetContext> execute(
                 ChangeEventSourceContext context,
                 Db2Partition partition,
-                Db2OffsetContext previousOffset)
+                Db2OffsetContext previousOffset,
+                SnapshottingTask snapshottingTask)
                 throws InterruptedException {
-            SnapshottingTask snapshottingTask = getSnapshottingTask(partition, previousOffset);
             final Db2SnapshotContext ctx;
             try {
-                ctx = prepare(partition);
+                ctx = prepare(partition, snapshottingTask.isOnDemand());
             } catch (Exception e) {
                 LOG.error("Failed to initialize snapshot context.", e);
                 throw new RuntimeException(e);
@@ -218,14 +249,27 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
         }
 
         @Override
-        protected SnapshottingTask getSnapshottingTask(
+        public SnapshottingTask getSnapshottingTask(
                 Db2Partition partition, Db2OffsetContext previousOffset) {
-            return new SnapshottingTask(false, true);
+            List<String> dataCollectionsToBeSnapshotted =
+                    connectorConfig.getDataCollectionsToBeSnapshotted();
+            Map<String, String> snapshotSelectOverridesByTable =
+                    connectorConfig.getSnapshotSelectOverridesByTable().entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            e -> e.getKey().identifier(), Map.Entry::getValue));
+            return new SnapshottingTask(
+                    false,
+                    true,
+                    dataCollectionsToBeSnapshotted,
+                    snapshotSelectOverridesByTable,
+                    false);
         }
 
         @Override
-        protected Db2SnapshotContext prepare(Db2Partition partition) throws Exception {
-            return new Db2SnapshotContext(partition);
+        protected Db2SnapshotContext prepare(Db2Partition partition, boolean onDemand)
+                throws Exception {
+            return new Db2SnapshotContext(partition, onDemand);
         }
 
         private void createDataEvents(Db2SnapshotContext snapshotContext, TableId tableId)
@@ -279,8 +323,7 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
 
                 while (rs.next()) {
                     rows++;
-                    final Object[] row =
-                            jdbcConnection.rowToArray(table, databaseSchema, rs, columnArray);
+                    final Object[] row = jdbcConnection.rowToArray(table, rs, columnArray);
                     if (logTimer.expired()) {
                         long stop = clock.currentTimeInMillis();
                         LOG.info(
@@ -312,7 +355,7 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
                 Db2SnapshotContext snapshotContext, TableId tableId, Object[] row) {
             snapshotContext.offset.event(tableId, clock.currentTime());
             return new SnapshotChangeRecordEmitter<>(
-                    snapshotContext.partition, snapshotContext.offset, row, clock);
+                    snapshotContext.partition, snapshotContext.offset, row, clock, connectorConfig);
         }
 
         private Threads.Timer getTableScanLogTimer() {
@@ -323,8 +366,9 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
                 extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext<
                         Db2Partition, Db2OffsetContext> {
 
-            public Db2SnapshotContext(Db2Partition partition) throws SQLException {
-                super(partition, "");
+            public Db2SnapshotContext(Db2Partition partition, boolean onDemand)
+                    throws SQLException {
+                super(partition, "", onDemand);
             }
         }
     }
@@ -341,8 +385,25 @@ public class Db2ScanFetchTask extends AbstractScanFetchTask {
         }
 
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return taskRunning;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

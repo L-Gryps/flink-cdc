@@ -26,13 +26,13 @@ import org.apache.flink.cdc.connectors.base.source.reader.external.FetchTask;
 
 import com.github.shyiko.mysql.binlog.event.Event;
 import io.debezium.DebeziumException;
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSource;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
@@ -133,8 +133,11 @@ public class MySqlStreamFetchTask implements FetchTask<SourceSplitBase> {
 
         @Override
         protected void handleEvent(
-                MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
-            super.handleEvent(partition, offsetContext, event);
+                MySqlPartition partition,
+                MySqlOffsetContext offsetContext,
+                ChangeEventSource.ChangeEventSourceContext context,
+                Event event) {
+            super.handleEvent(partition, offsetContext, context, event);
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
                 final BinlogOffset currentBinlogOffset =
@@ -181,8 +184,25 @@ public class MySqlStreamFetchTask implements FetchTask<SourceSplitBase> {
     private class BinlogSplitChangeEventSourceContext
             implements ChangeEventSource.ChangeEventSourceContext {
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return taskRunning;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

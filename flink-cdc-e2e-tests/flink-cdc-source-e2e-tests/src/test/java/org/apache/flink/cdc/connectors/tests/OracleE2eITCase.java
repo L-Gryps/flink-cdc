@@ -51,7 +51,7 @@ import static org.apache.flink.cdc.connectors.oracle.source.OracleSourceTestBase
 public class OracleE2eITCase extends FlinkContainerTestEnvironment {
 
     private static final Logger LOG = LoggerFactory.getLogger(OracleE2eITCase.class);
-    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.driver.OracleDriver";
+    private static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final String INTER_CONTAINER_ORACLE_ALIAS = "oracle";
     private static final Path oracleCdcJar = TestUtils.getResource("oracle-cdc-connector.jar");
     private static final Path mysqlDriverJar = TestUtils.getResource("mysql-driver.jar");

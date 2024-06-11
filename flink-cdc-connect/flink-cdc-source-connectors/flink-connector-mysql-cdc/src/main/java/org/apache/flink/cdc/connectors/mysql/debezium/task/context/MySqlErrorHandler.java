@@ -52,8 +52,9 @@ public class MySqlErrorHandler extends ErrorHandler {
             MySqlConnectorConfig mySqlConnectorConfig,
             ChangeEventQueue<?> queue,
             MySqlTaskContext context,
-            MySqlSourceConfig sourceConfig) {
-        super(MySqlConnector.class, mySqlConnectorConfig, queue);
+            MySqlSourceConfig sourceConfig,
+            ErrorHandler errorHandler) {
+        super(MySqlConnector.class, mySqlConnectorConfig, queue, errorHandler);
         this.context = context;
         this.sourceConfig = sourceConfig;
     }

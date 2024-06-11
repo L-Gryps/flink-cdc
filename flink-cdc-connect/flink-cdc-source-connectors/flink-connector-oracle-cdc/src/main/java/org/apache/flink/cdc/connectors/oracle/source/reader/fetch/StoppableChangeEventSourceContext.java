@@ -33,7 +33,24 @@ public class StoppableChangeEventSourceContext
     }
 
     @Override
+    public boolean isPaused() {
+        return false;
+    }
+
+    @Override
     public boolean isRunning() {
         return isRunning;
     }
+
+    @Override
+    public void resumeStreaming() throws InterruptedException {}
+
+    @Override
+    public void waitSnapshotCompletion() throws InterruptedException {}
+
+    @Override
+    public void streamingPaused() {}
+
+    @Override
+    public void waitStreamingPaused() throws InterruptedException {}
 }

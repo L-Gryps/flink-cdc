@@ -33,6 +33,7 @@ import org.apache.flink.cdc.connectors.sqlserver.source.utils.SqlServerConnectio
 import org.apache.flink.util.FlinkRuntimeException;
 
 import io.debezium.connector.sqlserver.SqlServerConnection;
+import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
@@ -80,7 +81,8 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createSqlServerConnection(sourceConfig.getDbzConnectorConfig());
+        SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) sourceConfig;
+        return createSqlServerConnection(sqlServerSourceConfig.getDbzConnectorConfig());
     }
 
     @Override
@@ -109,9 +111,9 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public Map<TableId, TableChange> discoverDataCollectionSchemas(JdbcSourceConfig sourceConfig) {
         final List<TableId> capturedTableIds = discoverDataCollections(sourceConfig);
-
-        try (SqlServerConnection jdbc =
-                createSqlServerConnection(sourceConfig.getDbzConnectorConfig())) {
+        SqlServerConnectorConfig sqlServerConnectorConfig =
+                (SqlServerConnectorConfig) sourceConfig.getDbzConnectorConfig();
+        try (SqlServerConnection jdbc = createSqlServerConnection(sqlServerConnectorConfig)) {
             // fetch table schemas
             Map<TableId, TableChange> tableSchemas = new HashMap<>();
             for (TableId tableId : capturedTableIds) {

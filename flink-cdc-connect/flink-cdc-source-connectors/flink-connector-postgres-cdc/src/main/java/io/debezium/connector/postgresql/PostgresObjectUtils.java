@@ -22,8 +22,6 @@ import org.apache.flink.util.FlinkRuntimeException;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.spi.SlotState;
-import io.debezium.relational.TableId;
-import io.debezium.schema.TopicSelector;
 import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
 import org.slf4j.Logger;
@@ -45,26 +43,26 @@ public class PostgresObjectUtils {
     public static PostgresSchema newSchema(
             PostgresConnection connection,
             PostgresConnectorConfig config,
-            TypeRegistry typeRegistry,
-            TopicSelector<TableId> topicSelector,
             PostgresValueConverter valueConverter)
             throws SQLException {
         PostgresSchema schema =
                 new PostgresSchema(
                         config,
-                        typeRegistry,
                         connection.getDefaultValueConverter(),
-                        topicSelector,
+                        config.getTopicNamingStrategy(
+                                PostgresConnectorConfig.TOPIC_NAMING_STRATEGY),
                         valueConverter);
         schema.refresh(connection, false);
         return schema;
     }
 
     public static PostgresTaskContext newTaskContext(
-            PostgresConnectorConfig connectorConfig,
-            PostgresSchema schema,
-            TopicSelector<TableId> topicSelector) {
-        return new PostgresTaskContext(connectorConfig, schema, topicSelector);
+            PostgresConnectorConfig connectorConfig, PostgresSchema schema) {
+        return new PostgresTaskContext(
+                connectorConfig,
+                schema,
+                connectorConfig.getTopicNamingStrategy(
+                        PostgresConnectorConfig.TOPIC_NAMING_STRATEGY));
     }
 
     public static PostgresEventMetadataProvider newEventMetadataProvider() {
@@ -105,7 +103,7 @@ public class PostgresObjectUtils {
         while (retryCount <= maxRetries) {
             try {
                 LOGGER.info("Creating a new replication connection for {}", taskContext);
-                return taskContext.createReplicationConnection(doSnapshot, postgresConnection);
+                return taskContext.createReplicationConnection(postgresConnection);
             } catch (SQLException ex) {
                 retryCount++;
                 if (retryCount > maxRetries) {

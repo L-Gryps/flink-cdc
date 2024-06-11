@@ -18,8 +18,7 @@
 package org.apache.flink.cdc.connectors.mongodb.source.offset;
 
 import io.debezium.relational.TableId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;

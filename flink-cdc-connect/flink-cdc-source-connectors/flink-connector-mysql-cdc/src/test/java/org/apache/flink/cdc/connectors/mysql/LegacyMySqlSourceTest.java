@@ -35,6 +35,7 @@ import com.jayway.jsonpath.JsonPath;
 import io.debezium.DebeziumException;
 import io.debezium.document.Document;
 import io.debezium.document.DocumentWriter;
+import io.debezium.relational.Attribute;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableEditor;
@@ -53,6 +54,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -782,7 +784,8 @@ public class LegacyMySqlSourceTest extends LegacyMySqlTestBase {
                                     "test",
                                     "test",
                                     "CREATE TABLE test(a int)",
-                                    null)
+                                    null,
+                                    Instant.now())
                             .document();
             historyState.add(writer.write(document));
         }
@@ -1263,6 +1266,16 @@ public class LegacyMySqlSourceTest extends LegacyMySqlTestBase {
         @Override
         public String comment() {
             return "";
+        }
+
+        @Override
+        public List<Attribute> attributes() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public Attribute attributeWithName(String name) {
+            return null;
         }
 
         @Override

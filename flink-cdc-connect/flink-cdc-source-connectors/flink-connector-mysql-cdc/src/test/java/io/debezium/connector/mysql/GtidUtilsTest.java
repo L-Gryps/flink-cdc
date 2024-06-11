@@ -17,6 +17,7 @@
 
 package io.debezium.connector.mysql;
 
+import io.debezium.connector.mysql.strategy.mysql.MySqlGtidSet;
 import org.junit.jupiter.api.Test;
 
 import static io.debezium.connector.mysql.GtidUtils.fixRestoredGtidSet;
@@ -27,44 +28,44 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GtidUtilsTest {
     @Test
     void testFixingRestoredGtidSet() {
-        GtidSet serverGtidSet = new GtidSet("A:1-100");
-        GtidSet restoredGtidSet = new GtidSet("A:30-100");
+        MySqlGtidSet serverGtidSet = new MySqlGtidSet("A:1-100");
+        MySqlGtidSet restoredGtidSet = new MySqlGtidSet("A:30-100");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo("A:1-100");
 
-        serverGtidSet = new GtidSet("A:1-100");
-        restoredGtidSet = new GtidSet("A:30-50");
+        serverGtidSet = new MySqlGtidSet("A:1-100");
+        restoredGtidSet = new MySqlGtidSet("A:30-50");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo("A:1-50");
 
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150");
+        serverGtidSet = new MySqlGtidSet("A:1-100:102-200,B:20-200");
+        restoredGtidSet = new MySqlGtidSet("A:106-150");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo("A:1-100:102-150,B:20-200");
 
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150,C:1-100");
+        serverGtidSet = new MySqlGtidSet("A:1-100:102-200,B:20-200");
+        restoredGtidSet = new MySqlGtidSet("A:106-150,C:1-100");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo("A:1-100:102-150,B:20-200,C:1-100");
 
-        serverGtidSet = new GtidSet("A:1-100:102-200,B:20-200");
-        restoredGtidSet = new GtidSet("A:106-150:152-200,C:1-100");
+        serverGtidSet = new MySqlGtidSet("A:1-100:102-200,B:20-200");
+        restoredGtidSet = new MySqlGtidSet("A:106-150:152-200,C:1-100");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo("A:1-100:102-200,B:20-200,C:1-100");
     }
 
     @Test
     void testMergingGtidSets() {
-        GtidSet base = new GtidSet("A:1-100");
-        GtidSet toMerge = new GtidSet("A:1-10");
+        MySqlGtidSet base = new MySqlGtidSet("A:1-100");
+        MySqlGtidSet toMerge = new MySqlGtidSet("A:1-10");
         assertThat(mergeGtidSetInto(base, toMerge).toString()).isEqualTo("A:1-100");
 
-        base = new GtidSet("A:1-100");
-        toMerge = new GtidSet("B:1-10");
+        base = new MySqlGtidSet("A:1-100");
+        toMerge = new MySqlGtidSet("B:1-10");
         assertThat(mergeGtidSetInto(base, toMerge).toString()).isEqualTo("A:1-100,B:1-10");
 
-        base = new GtidSet("A:1-100,C:1-100");
-        toMerge = new GtidSet("A:1-10,B:1-10");
+        base = new MySqlGtidSet("A:1-100,C:1-100");
+        toMerge = new MySqlGtidSet("A:1-10,B:1-10");
         assertThat(mergeGtidSetInto(base, toMerge).toString()).isEqualTo("A:1-100,B:1-10,C:1-100");
     }
 }

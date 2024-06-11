@@ -38,7 +38,11 @@ public class PostgresOffsetUtils {
         for (String key : offsetStrMap.keySet()) {
             String value = offsetStrMap.get(key);
             if (value != null) {
-                offsetMap.put(key, Long.parseLong(value));
+                if (!key.equals("messageType")) {
+                    offsetMap.put(key, Long.parseLong(value));
+                } else {
+                    offsetMap.put(key, value);
+                }
             }
         }
         return loader.load(offsetMap);

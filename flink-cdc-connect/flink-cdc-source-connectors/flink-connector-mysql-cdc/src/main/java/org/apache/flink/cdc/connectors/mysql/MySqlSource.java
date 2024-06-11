@@ -23,6 +23,7 @@ import org.apache.flink.cdc.debezium.DebeziumSourceFunction;
 import org.apache.flink.cdc.debezium.internal.DebeziumOffset;
 
 import io.debezium.connector.mysql.MySqlConnector;
+import io.debezium.embedded.EmbeddedEngineConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -159,7 +160,9 @@ public class MySqlSource {
 
         public DebeziumSourceFunction<T> build() {
             Properties props = new Properties();
-            props.setProperty("connector.class", MySqlConnector.class.getCanonicalName());
+            props.setProperty(
+                    EmbeddedEngineConfig.CONNECTOR_CLASS.name(),
+                    MySqlConnector.class.getCanonicalName());
             // hard code server name, because we don't need to distinguish it, docs:
             // Logical name that identifies and provides a namespace for the particular MySQL
             // database
@@ -167,12 +170,12 @@ public class MySqlSource {
             // connectors,
             // since it is used as a prefix for all Kafka topic names emanating from this connector.
             // Only alphanumeric characters and underscores should be used.
-            props.setProperty("database.server.name", DATABASE_SERVER_NAME);
+            props.setProperty("topic.prefix", DATABASE_SERVER_NAME);
             props.setProperty("database.hostname", checkNotNull(hostname));
             props.setProperty("database.user", checkNotNull(username));
             props.setProperty("database.password", checkNotNull(password));
             props.setProperty("database.port", String.valueOf(port));
-            props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
+            props.setProperty("schema.history.internal.skip.unparseable.ddl", String.valueOf(true));
             // debezium use "long" mode to handle unsigned bigint by default,
             // but it'll cause lose of precise when the value is larger than 2^63,
             // so use "precise" mode to avoid it.

@@ -23,8 +23,7 @@ import org.apache.flink.table.types.logical.RowType;
 
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

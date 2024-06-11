@@ -22,6 +22,7 @@ import org.apache.flink.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.flink.cdc.debezium.DebeziumSourceFunction;
 
 import io.debezium.connector.oracle.OracleConnector;
+import io.debezium.embedded.EmbeddedEngineConfig;
 
 import javax.annotation.Nullable;
 
@@ -32,6 +33,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * A builder to build a SourceFunction which can read snapshot and continue to consume log miner.
  */
+@Deprecated
 public class OracleSource {
 
     private static final String DATABASE_SERVER_NAME = "oracle_logminer";
@@ -138,7 +140,9 @@ public class OracleSource {
 
         public DebeziumSourceFunction<T> build() {
             Properties props = new Properties();
-            props.setProperty("connector.class", OracleConnector.class.getCanonicalName());
+            props.setProperty(
+                    EmbeddedEngineConfig.CONNECTOR_CLASS.name(),
+                    OracleConnector.class.getCanonicalName());
             // Logical name that identifies and provides a namespace for the particular Oracle
             // database server being
             // monitored. The logical name should be unique across all other connectors, since it is
@@ -146,7 +150,7 @@ public class OracleSource {
             // for all Kafka topic names emanating from this connector. Only alphanumeric characters
             // and
             // underscores should be used.
-            props.setProperty("database.server.name", DATABASE_SERVER_NAME);
+            props.setProperty("topic.prefix", DATABASE_SERVER_NAME);
             props.setProperty("database.user", checkNotNull(username));
             props.setProperty("database.password", checkNotNull(password));
 
@@ -159,7 +163,7 @@ public class OracleSource {
             if (port != null) {
                 props.setProperty("database.port", String.valueOf(port));
             }
-            props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
+            props.setProperty("schema.history.internal.skip.unparseable.ddl", String.valueOf(true));
             props.setProperty("database.dbname", checkNotNull(database));
             if (schemaList != null) {
                 props.setProperty("schema.include.list", String.join(",", schemaList));

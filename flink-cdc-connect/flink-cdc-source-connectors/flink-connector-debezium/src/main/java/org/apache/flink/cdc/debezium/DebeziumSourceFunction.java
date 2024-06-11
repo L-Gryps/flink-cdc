@@ -31,9 +31,9 @@ import org.apache.flink.cdc.debezium.internal.DebeziumChangeConsumer;
 import org.apache.flink.cdc.debezium.internal.DebeziumChangeFetcher;
 import org.apache.flink.cdc.debezium.internal.DebeziumOffset;
 import org.apache.flink.cdc.debezium.internal.DebeziumOffsetSerializer;
-import org.apache.flink.cdc.debezium.internal.FlinkDatabaseHistory;
 import org.apache.flink.cdc.debezium.internal.FlinkDatabaseSchemaHistory;
 import org.apache.flink.cdc.debezium.internal.FlinkOffsetBackingStore;
+import org.apache.flink.cdc.debezium.internal.FlinkSchemaHistory;
 import org.apache.flink.cdc.debezium.internal.Handover;
 import org.apache.flink.cdc.debezium.internal.SchemaRecord;
 import org.apache.flink.configuration.Configuration;
@@ -55,11 +55,10 @@ import io.debezium.embedded.Connect;
 import io.debezium.engine.DebeziumEngine;
 import io.debezium.engine.spi.OffsetCommitPolicy;
 import io.debezium.heartbeat.Heartbeat;
+import jakarta.annotation.Nullable;
 import org.apache.commons.collections.map.LinkedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -172,7 +171,7 @@ public class DebeziumSourceFunction<T> extends RichSourceFunction<T>
     /**
      * State to store the history records, i.e. schema changes.
      *
-     * @see FlinkDatabaseHistory
+     * @see FlinkSchemaHistory
      * @see FlinkDatabaseSchemaHistory
      */
     private transient ListState<String> schemaRecordsState;
@@ -185,7 +184,7 @@ public class DebeziumSourceFunction<T> extends RichSourceFunction<T>
     private transient DebeziumEngine<?> engine;
     /**
      * Unique name of this Debezium Engine instance across all the jobs. Currently we randomly
-     * generate a UUID for it. This is used for {@link FlinkDatabaseHistory}.
+     * generate a UUID for it. This is used for {@link FlinkSchemaHistory}.
      */
     private transient String engineInstanceName;
 
@@ -385,14 +384,13 @@ public class DebeziumSourceFunction<T> extends RichSourceFunction<T>
             engineInstanceName = UUID.randomUUID().toString();
         }
         // history instance name to initialize FlinkDatabaseHistory
-        properties.setProperty(
-                FlinkDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME, engineInstanceName);
+        properties.setProperty(FlinkSchemaHistory.SCHEMA_HISTORY_INSTANCE_NAME, engineInstanceName);
         // we have to use a persisted DatabaseHistory implementation, otherwise, recovery can't
         // continue to read binlog
         // see
         // https://stackoverflow.com/questions/57147584/debezium-error-schema-isnt-know-to-this-connector
         // and https://debezium.io/blog/2018/03/16/note-on-database-history-topic-configuration/
-        properties.setProperty("database.history", determineDatabase().getCanonicalName());
+        properties.setProperty("schema.history.internal", determineDatabase().getCanonicalName());
 
         // we have to filter out the heartbeat events, otherwise the deserializer will fail
         String dbzHeartbeatPrefix =
@@ -567,11 +565,11 @@ public class DebeziumSourceFunction<T> extends RichSourceFunction<T>
 
     private Class<?> determineDatabase() {
         boolean isCompatibleWithLegacy =
-                FlinkDatabaseHistory.isCompatible(retrieveHistory(engineInstanceName));
+                FlinkSchemaHistory.isCompatible(retrieveHistory(engineInstanceName));
         if (LEGACY_IMPLEMENTATION_VALUE.equals(properties.get(LEGACY_IMPLEMENTATION_KEY))) {
             // specifies the legacy implementation but the state may be incompatible
             if (isCompatibleWithLegacy) {
-                return FlinkDatabaseHistory.class;
+                return FlinkSchemaHistory.class;
             } else {
                 throw new IllegalStateException(
                         "The configured option 'debezium.internal.implementation' is 'legacy', but the state of source is incompatible with this implementation, you should remove the the option.");
@@ -581,7 +579,7 @@ public class DebeziumSourceFunction<T> extends RichSourceFunction<T>
             return FlinkDatabaseSchemaHistory.class;
         } else if (isCompatibleWithLegacy) {
             // fallback to legacy if possible
-            return FlinkDatabaseHistory.class;
+            return FlinkSchemaHistory.class;
         } else {
             // impossible
             throw new IllegalStateException("Can't determine which DatabaseHistory to use.");

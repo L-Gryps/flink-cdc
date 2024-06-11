@@ -26,7 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 /** A Oracle datasource factory. */
 public class OraclePooledDataSourceFactory extends JdbcConnectionPoolFactory {
 
-    public static final String JDBC_URL_PATTERN = "jdbc:oracle:thin:@%s:%s:%s";
+    public static final String JDBC_URL_PATTERN = "jdbc:oracle:thin:@%s:%s/%s";
 
     @Override
     public String getJdbcUrl(JdbcSourceConfig sourceConfig) {

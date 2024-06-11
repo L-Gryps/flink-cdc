@@ -28,12 +28,16 @@ import com.github.shyiko.mysql.binlog.event.EventData;
 import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
 import com.github.shyiko.mysql.binlog.event.RotateEventData;
 import io.debezium.config.Configuration;
-import io.debezium.connector.mysql.MySqlConnection;
+import io.debezium.connector.mysql.MariaDbProtocolFieldReader;
+import io.debezium.connector.mysql.MySqlBinaryProtocolFieldReader;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
+import io.debezium.connector.mysql.MySqlFieldReader;
 import io.debezium.connector.mysql.MySqlSystemVariables;
-import io.debezium.connector.mysql.MySqlTopicSelector;
+import io.debezium.connector.mysql.MySqlTextProtocolFieldReader;
 import io.debezium.connector.mysql.MySqlValueConverters;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnectionConfiguration;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.jdbc.JdbcValueConverters;
@@ -41,8 +45,8 @@ import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Selectors;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
-import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
+import io.debezium.schema.SchemaNameAdjuster;
+import io.debezium.spi.topic.TopicNamingStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +93,7 @@ public class DebeziumUtils {
     public static MySqlConnection createMySqlConnection(
             Configuration dbzConfiguration, Properties jdbcProperties) {
         return new MySqlConnection(
-                new MySqlConnection.MySqlConnectionConfiguration(dbzConfiguration, jdbcProperties));
+                new MySqlConnectionConfiguration(dbzConfiguration, jdbcProperties));
     }
 
     /** Creates a new {@link BinaryLogClient} for consuming mysql binlog. */
@@ -105,7 +109,8 @@ public class DebeziumUtils {
     /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
     public static MySqlDatabaseSchema createMySqlDatabaseSchema(
             MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
-        TopicSelector<TableId> topicSelector = MySqlTopicSelector.defaultSelector(dbzMySqlConfig);
+        TopicNamingStrategy<TableId> topicSelector =
+                dbzMySqlConfig.getTopicNamingStrategy(MySqlConnectorConfig.TOPIC_NAMING_STRATEGY);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         MySqlValueConverters valueConverters = getValueConverters(dbzMySqlConfig);
         return new MySqlDatabaseSchema(
@@ -164,11 +169,15 @@ public class DebeziumUtils {
 
     // --------------------------------------------------------------------------------------------
 
-    private static MySqlValueConverters getValueConverters(MySqlConnectorConfig dbzMySqlConfig) {
-        TemporalPrecisionMode timePrecisionMode = dbzMySqlConfig.getTemporalPrecisionMode();
-        JdbcValueConverters.DecimalMode decimalMode = dbzMySqlConfig.getDecimalMode();
+    private static MySqlValueConverters getValueConverters(MySqlConnectorConfig configuration) {
+        // Use MySQL-specific converters and schemas for values ...
+
+        TemporalPrecisionMode timePrecisionMode = configuration.getTemporalPrecisionMode();
+
+        JdbcValueConverters.DecimalMode decimalMode = configuration.getDecimalMode();
+
         String bigIntUnsignedHandlingModeStr =
-                dbzMySqlConfig
+                configuration
                         .getConfig()
                         .getString(MySqlConnectorConfig.BIGINT_UNSIGNED_HANDLING_MODE);
         MySqlConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode =
@@ -177,15 +186,16 @@ public class DebeziumUtils {
         JdbcValueConverters.BigIntUnsignedMode bigIntUnsignedMode =
                 bigIntUnsignedHandlingMode.asBigIntUnsignedMode();
 
-        boolean timeAdjusterEnabled =
-                dbzMySqlConfig.getConfig().getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
+        final boolean timeAdjusterEnabled =
+                configuration.getConfig().getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
         return new MySqlValueConverters(
                 decimalMode,
                 timePrecisionMode,
                 bigIntUnsignedMode,
-                dbzMySqlConfig.binaryHandlingMode(),
+                configuration.binaryHandlingMode(),
                 timeAdjusterEnabled ? MySqlValueConverters::adjustTemporal : x -> x,
-                MySqlValueConverters::defaultParsingErrorHandler);
+                MySqlValueConverters::defaultParsingErrorHandler,
+                configuration.getConnectorAdapter());
     }
 
     public static List<TableId> discoverCapturedTables(
@@ -241,7 +251,8 @@ public class DebeziumUtils {
     }
 
     public static BinlogOffset findBinlogOffset(long targetMs, MySqlConnection connection) {
-        MySqlConnection.MySqlConnectionConfiguration config = connection.connectionConfig();
+        MySqlConnectionConfiguration config =
+                (MySqlConnectionConfiguration) connection.connectionConfig();
         BinaryLogClient client =
                 new BinaryLogClient(
                         config.hostname(), config.port(), config.username(), config.password());
@@ -330,5 +341,15 @@ public class DebeziumUtils {
             client.unregisterEventListener(eventListener);
         }
         return binlogTimestamps.take();
+    }
+
+    private static MySqlFieldReader getFieldReader(MySqlConnectorConfig configuration) {
+        if (configuration.usesMariaDbProtocol()) {
+            return new MariaDbProtocolFieldReader(configuration);
+        } else if (configuration.useCursorFetch()) {
+            return new MySqlBinaryProtocolFieldReader(configuration);
+        } else {
+            return new MySqlTextProtocolFieldReader(configuration);
+        }
     }
 }

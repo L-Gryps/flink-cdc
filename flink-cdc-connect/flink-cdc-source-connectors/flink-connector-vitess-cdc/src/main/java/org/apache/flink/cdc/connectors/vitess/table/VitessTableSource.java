@@ -32,7 +32,7 @@ import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.ZoneId;
 import java.util.Objects;

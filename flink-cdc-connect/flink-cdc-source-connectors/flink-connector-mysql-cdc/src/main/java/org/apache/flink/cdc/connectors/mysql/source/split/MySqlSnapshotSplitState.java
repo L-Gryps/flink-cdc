@@ -19,7 +19,7 @@ package org.apache.flink.cdc.connectors.mysql.source.split;
 
 import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 /** The state of split to describe the binlog of MySql table(s). */
 public class MySqlSnapshotSplitState extends MySqlSplitState {

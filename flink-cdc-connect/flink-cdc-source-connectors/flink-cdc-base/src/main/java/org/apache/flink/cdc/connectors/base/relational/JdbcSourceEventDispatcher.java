@@ -31,6 +31,7 @@ import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.snapshot.incremental.IncrementalSnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.ChangeEventCreator;
+import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.Partition;
 import io.debezium.pipeline.spi.SchemaChangeEventEmitter;
 import io.debezium.relational.TableId;
@@ -39,8 +40,8 @@ import io.debezium.schema.DataCollectionFilters;
 import io.debezium.schema.DatabaseSchema;
 import io.debezium.schema.HistorizedDatabaseSchema;
 import io.debezium.schema.SchemaChangeEvent;
+import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -90,7 +91,7 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
             SchemaChangeEventHandler schemaChangeEventHandler) {
         super(
                 connectorConfig,
-                topicSelector,
+                connectorConfig.getTopicNamingStrategy(CommonConnectorConfig.TOPIC_NAMING_STRATEGY),
                 schema,
                 queue,
                 filter,
@@ -137,6 +138,7 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
     @Override
     public void dispatchSchemaChangeEvent(
             P partition,
+            OffsetContext offsetContext,
             TableId dataCollectionId,
             SchemaChangeEventEmitter schemaChangeEventEmitter)
             throws InterruptedException {
@@ -150,7 +152,7 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
         IncrementalSnapshotChangeEventSource<P, TableId> incrementalEventSource =
                 getIncrementalSnapshotChangeEventSource();
         if (incrementalEventSource != null) {
-            incrementalEventSource.processSchemaChange(partition, dataCollectionId);
+            incrementalEventSource.processSchemaChange(partition, offsetContext, dataCollectionId);
         }
     }
 
@@ -198,7 +200,8 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
                             event.getDatabase(),
                             event.getSchema(),
                             event.getDdl(),
-                            event.getTableChanges());
+                            event.getTableChanges(),
+                            event.getTimestamp());
             String historyStr = DOCUMENT_WRITER.write(historyRecord.document());
 
             Struct value = new Struct(schemaChangeValueSchema);

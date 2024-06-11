@@ -18,10 +18,11 @@
 package org.apache.flink.cdc.connectors.oracle.source.config;
 
 import org.apache.flink.cdc.connectors.base.config.JdbcSourceConfigFactory;
-import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkDatabaseHistory;
+import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkSchemaHistory;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnector;
+import io.debezium.embedded.EmbeddedEngineConfig;
 
 import javax.annotation.Nullable;
 
@@ -63,7 +64,9 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
     public OracleSourceConfig create(int subtaskId) {
         checkSupportCheckpointsAfterTasksFinished(closeIdleReaders);
         Properties props = new Properties();
-        props.setProperty("connector.class", OracleConnector.class.getCanonicalName());
+        props.setProperty(
+                EmbeddedEngineConfig.CONNECTOR_CLASS.name(),
+                OracleConnector.class.getCanonicalName());
         // Logical name that identifies and provides a namespace for the particular Oracle
         // database server being
         // monitored. The logical name should be unique across all other connectors, since it is
@@ -71,17 +74,17 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         // for all Kafka topic names emanating from this connector. Only alphanumeric characters
         // and
         // underscores should be used.
-        props.setProperty("database.server.name", DATABASE_SERVER_NAME);
+        props.setProperty("topic.prefix", DATABASE_SERVER_NAME);
         props.setProperty("database.user", checkNotNull(username));
         props.setProperty("database.password", checkNotNull(password));
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
         // database history
         props.setProperty(
-                "database.history", EmbeddedFlinkDatabaseHistory.class.getCanonicalName());
-        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtaskId);
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.history.refer.ddl", String.valueOf(true));
+                "schema.history.internal", EmbeddedFlinkSchemaHistory.class.getCanonicalName());
+        props.setProperty(
+                "schema.history.internal.instance.name", UUID.randomUUID() + "_" + subtaskId);
+        props.setProperty("schema.history.internal.skip.unparseable.ddl", String.valueOf(true));
+        props.setProperty("schema.history.internal.prefer.ddl", String.valueOf(true));
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeout.toMillis()));
         // disable tombstones
         props.setProperty("tombstones.on.delete", String.valueOf(false));

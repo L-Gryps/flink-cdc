@@ -23,15 +23,14 @@ import org.apache.flink.cdc.common.schema.Schema;
 import org.apache.flink.cdc.connectors.mysql.schema.MySqlSchema;
 import org.apache.flink.cdc.connectors.mysql.source.config.MySqlSourceConfig;
 
-import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlPartition;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
 import io.debezium.relational.history.TableChanges;
+import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.sql.SQLException;
 import java.util.ArrayList;

@@ -19,7 +19,7 @@ package org.apache.flink.cdc.connectors.mysql.table;
 
 import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;

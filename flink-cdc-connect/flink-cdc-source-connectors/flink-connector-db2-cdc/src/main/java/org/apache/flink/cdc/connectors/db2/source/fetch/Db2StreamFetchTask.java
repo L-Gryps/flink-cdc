@@ -67,6 +67,7 @@ public class Db2StreamFetchTask implements FetchTask<SourceSplitBase> {
                         split);
         RedoLogSplitChangeEventSourceContext changeEventSourceContext =
                 new RedoLogSplitChangeEventSourceContext();
+        streamSplitReadTask.init(sourceFetchContext.getOffsetContext());
         streamSplitReadTask.execute(
                 changeEventSourceContext,
                 sourceFetchContext.getPartition(),
@@ -166,8 +167,25 @@ public class Db2StreamFetchTask implements FetchTask<SourceSplitBase> {
     /** The {@link ChangeEventSourceContext} implementation for redo logs split task. */
     private class RedoLogSplitChangeEventSourceContext implements ChangeEventSourceContext {
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return taskRunning;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

@@ -21,14 +21,13 @@ import org.apache.flink.cdc.common.annotation.Internal;
 import org.apache.flink.cdc.common.annotation.VisibleForTesting;
 import org.apache.flink.util.ExceptionUtils;
 
+import io.debezium.annotation.GuardedBy;
+import io.debezium.annotation.ThreadSafe;
 import io.debezium.engine.ChangeEvent;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.Collections;

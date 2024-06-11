@@ -20,6 +20,7 @@ package org.apache.flink.cdc.debezium.internal;
 import org.apache.flink.cdc.common.annotation.Internal;
 
 import io.debezium.embedded.EmbeddedEngineChangeEvent;
+import io.debezium.embedded.EmbeddedEngineHeader;
 import io.debezium.engine.ChangeEvent;
 import io.debezium.engine.DebeziumEngine;
 import io.debezium.engine.DebeziumEngine.RecordCommitter;
@@ -30,6 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /** Consume debezium change events. */
 @Internal
@@ -78,8 +81,14 @@ public class DebeziumChangeConsumer
                         "DUMMY",
                         Schema.BOOLEAN_SCHEMA,
                         true);
-        EmbeddedEngineChangeEvent<SourceRecord, SourceRecord> changeEvent =
-                new EmbeddedEngineChangeEvent<>(null, recordWrapper, recordWrapper);
+        EmbeddedEngineChangeEvent<SourceRecord, SourceRecord, Object> changeEvent =
+                new EmbeddedEngineChangeEvent<>(
+                        null,
+                        recordWrapper,
+                        StreamSupport.stream(recordWrapper.headers().spliterator(), true)
+                                .map(EmbeddedEngineHeader::new)
+                                .collect(Collectors.toList()),
+                        recordWrapper);
         currentCommitter.markProcessed(changeEvent);
         currentCommitter.markBatchFinished();
     }

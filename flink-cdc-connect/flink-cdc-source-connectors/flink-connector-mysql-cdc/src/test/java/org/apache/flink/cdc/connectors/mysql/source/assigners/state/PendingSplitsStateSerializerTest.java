@@ -24,6 +24,7 @@ import org.apache.flink.cdc.connectors.mysql.source.split.MySqlSplitSerializer;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.RowType;
 
+import io.debezium.relational.Attribute;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableEditor;
@@ -262,6 +263,16 @@ public class PendingSplitsStateSerializerTest {
         @Override
         public String comment() {
             return "";
+        }
+
+        @Override
+        public List<Attribute> attributes() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public Attribute attributeWithName(String name) {
+            return null;
         }
 
         @Override
