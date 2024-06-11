@@ -23,7 +23,6 @@ import io.debezium.config.Configuration;
 import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.relational.ColumnFilterMode;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
-import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 
 import java.util.Arrays;
@@ -48,17 +47,17 @@ public class OceanBaseConnectorConfig extends RelationalDatabaseConnectorConfig 
             String compatibleMode, String serverTimeZone, Properties properties) {
         super(
                 Configuration.from(properties),
-                LOGICAL_NAME,
                 Tables.TableFilter.fromPredicate(
                         tableId ->
                                 "mysql".equalsIgnoreCase(compatibleMode)
                                         ? !BUILT_IN_DB_NAMES.contains(tableId.catalog())
                                         : !BUILT_IN_DB_NAMES.contains(tableId.schema())),
-                TableId::identifier,
+                x -> x.schema() + "." + x.table(),
                 DEFAULT_SNAPSHOT_FETCH_SIZE,
                 "mysql".equalsIgnoreCase(compatibleMode)
                         ? ColumnFilterMode.CATALOG
-                        : ColumnFilterMode.SCHEMA);
+                        : ColumnFilterMode.SCHEMA,
+                false);
         this.compatibleMode = compatibleMode;
         this.serverTimeZone = serverTimeZone;
     }

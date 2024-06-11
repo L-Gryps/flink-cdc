@@ -37,19 +37,23 @@ import org.apache.flink.shaded.guava31.com.google.common.util.concurrent.ThreadF
 import io.debezium.config.Configuration;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlConnectorTask;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.DataChangeEvent;
+import io.debezium.pipeline.notification.NotificationService;
+import io.debezium.pipeline.source.SnapshottingTask;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.spi.SnapshotResult;
-import io.debezium.util.SchemaNameAdjuster;
+import io.debezium.schema.SchemaFactory;
+import io.debezium.schema.SchemaNameAdjuster;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -121,6 +125,14 @@ public class SnapshotSplitReader implements DebeziumReader<SourceRecords, MySqlS
         this.nameAdjuster = statefulTaskContext.getSchemaNameAdjuster();
         this.hasNextElement.set(true);
         this.reachEnd.set(false);
+        NotificationService<MySqlPartition, MySqlOffsetContext> notificationService =
+                new NotificationService<>(
+                        new MySqlConnectorTask().getNotificationChannels(),
+                        statefulTaskContext.getConnectorConfig(),
+                        SchemaFactory.get(),
+                        (record) -> {
+                            statefulTaskContext.getQueue().enqueue(new DataChangeEvent(record));
+                        });
         this.splitSnapshotReadTask =
                 new MySqlSnapshotSplitReadTask(
                         statefulTaskContext.getSourceConfig(),
@@ -134,7 +146,8 @@ public class SnapshotSplitReader implements DebeziumReader<SourceRecords, MySqlS
                         StatefulTaskContext.getClock(),
                         currentSnapshotSplit,
                         hooks,
-                        statefulTaskContext.getSourceConfig().isSkipSnapshotBackfill());
+                        statefulTaskContext.getSourceConfig().isSkipSnapshotBackfill(),
+                        notificationService);
         executorService.execute(
                 () -> {
                     try {
@@ -159,10 +172,15 @@ public class SnapshotSplitReader implements DebeziumReader<SourceRecords, MySqlS
 
     private SnapshotResult<MySqlOffsetContext> snapshot(
             SnapshotSplitChangeEventSourceContextImpl sourceContext) throws Exception {
+        SnapshottingTask snapshottingTask =
+                splitSnapshotReadTask.getSnapshottingTask(
+                        statefulTaskContext.getMySqlPartition(),
+                        statefulTaskContext.getOffsetContext());
         return splitSnapshotReadTask.execute(
                 sourceContext,
                 statefulTaskContext.getMySqlPartition(),
-                statefulTaskContext.getOffsetContext());
+                statefulTaskContext.getOffsetContext(),
+                snapshottingTask);
     }
 
     private void backfill(
@@ -186,7 +204,7 @@ public class SnapshotSplitReader implements DebeziumReader<SourceRecords, MySqlS
                     new MySqlOffsetContext.Loader(statefulTaskContext.getConnectorConfig());
             final MySqlOffsetContext mySqlOffsetContext =
                     loader.load(backfillBinlogSplit.getStartingOffset().getOffset());
-
+            backfillBinlogReadTask.init(statefulTaskContext.getOffsetContext());
             backfillBinlogReadTask.execute(
                     changeEventSourceContext,
                     statefulTaskContext.getMySqlPartition(),
@@ -437,8 +455,25 @@ public class SnapshotSplitReader implements DebeziumReader<SourceRecords, MySqlS
         }
 
         @Override
+        public boolean isPaused() {
+            return false;
+        }
+
+        @Override
         public boolean isRunning() {
             return lowWatermark != null && highWatermark != null;
         }
+
+        @Override
+        public void resumeStreaming() throws InterruptedException {}
+
+        @Override
+        public void waitSnapshotCompletion() throws InterruptedException {}
+
+        @Override
+        public void streamingPaused() {}
+
+        @Override
+        public void waitStreamingPaused() throws InterruptedException {}
     }
 }

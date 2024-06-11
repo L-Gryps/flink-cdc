@@ -25,8 +25,8 @@ import org.apache.flink.cdc.connectors.mysql.source.config.MySqlSourceConfig;
 import org.apache.flink.cdc.connectors.mysql.utils.MySqlSchemaUtils;
 
 import io.debezium.connector.mysql.MySqlPartition;
-
-import javax.annotation.Nullable;
+import io.debezium.jdbc.JdbcConfiguration;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 
@@ -41,7 +41,9 @@ public class MySqlMetadataAccessor implements MetadataAccessor {
     public MySqlMetadataAccessor(MySqlSourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
         this.partition =
-                new MySqlPartition(sourceConfig.getMySqlConnectorConfig().getLogicalName());
+                new MySqlPartition(
+                        sourceConfig.getMySqlConnectorConfig().getLogicalName(),
+                        sourceConfig.getDbzConfiguration().getString(JdbcConfiguration.DATABASE));
     }
 
     /**

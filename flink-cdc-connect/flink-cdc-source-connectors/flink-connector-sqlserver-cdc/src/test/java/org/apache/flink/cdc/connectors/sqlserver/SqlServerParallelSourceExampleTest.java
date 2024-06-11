@@ -28,6 +28,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.util.Properties;
+
 /** Example Tests for {@link SqlServerIncrementalSource}. */
 public class SqlServerParallelSourceExampleTest extends SqlServerSourceTestBase {
 
@@ -35,6 +37,8 @@ public class SqlServerParallelSourceExampleTest extends SqlServerSourceTestBase 
     @Ignore("Test ignored because it won't stop and is used for manual test")
     public void testSqlServerExampleSource() throws Exception {
         initializeSqlServerTable("inventory");
+        Properties properties = new Properties();
+        properties.setProperty("database.encrypt", "false");
 
         SqlServerIncrementalSource<String> sqlServerSource =
                 new SqlServerSourceBuilder()
@@ -46,6 +50,7 @@ public class SqlServerParallelSourceExampleTest extends SqlServerSourceTestBase 
                         .password(MSSQL_SERVER_CONTAINER.getPassword())
                         .deserializer(new JsonDebeziumDeserializationSchema())
                         .startupOptions(StartupOptions.initial())
+                        .debeziumProperties(properties)
                         .includeSchemaChanges(true) // output the schema changes as well
                         .build();
 

@@ -85,7 +85,7 @@ public class Lsn implements Comparable<Lsn> {
         final ByteBuffer buf = ByteBuffer.allocate(8);
         buf.putInt(logicalXlog);
         buf.putInt(segment);
-        ((java.nio.Buffer) buf).position(0);
+        buf.position(0);
         final long value = buf.getLong();
 
         return Lsn.valueOf(value);
@@ -109,7 +109,7 @@ public class Lsn implements Comparable<Lsn> {
     public String asString() {
         final ByteBuffer buf = ByteBuffer.allocate(8);
         buf.putLong(value);
-        ((java.nio.Buffer) buf).position(0);
+        buf.position(0);
 
         final int logicalXlog = buf.getInt();
         final int segment = buf.getInt();

@@ -29,8 +29,8 @@ import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
 import io.debezium.connector.oracle.OracleOffsetContext;
 import io.debezium.connector.oracle.OraclePartition;
-import io.debezium.connector.oracle.OracleStreamingChangeEventSourceMetrics;
 import io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource;
+import io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSourceMetrics;
 import io.debezium.connector.oracle.logminer.processor.LogMinerEventProcessor;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.util.Clock;
@@ -64,6 +64,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
                         split);
         StoppableChangeEventSourceContext changeEventSourceContext =
                 new StoppableChangeEventSourceContext();
+        redoLogSplitReadTask.init(sourceFetchContext.getOffsetContext());
         redoLogSplitReadTask.execute(
                 changeEventSourceContext,
                 sourceFetchContext.getPartition(),
@@ -101,7 +102,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
 
         private final OracleDatabaseSchema schema;
 
-        private final OracleStreamingChangeEventSourceMetrics metrics;
+        private final LogMinerStreamingChangeEventSourceMetrics metrics;
 
         public RedoLogSplitReadTask(
                 OracleConnectorConfig connectorConfig,
@@ -110,7 +111,7 @@ public class OracleStreamFetchTask implements FetchTask<SourceSplitBase> {
                 ErrorHandler errorHandler,
                 OracleDatabaseSchema schema,
                 Configuration jdbcConfig,
-                OracleStreamingChangeEventSourceMetrics metrics,
+                LogMinerStreamingChangeEventSourceMetrics metrics,
                 StreamSplit redoLogSplit) {
             super(
                     connectorConfig,

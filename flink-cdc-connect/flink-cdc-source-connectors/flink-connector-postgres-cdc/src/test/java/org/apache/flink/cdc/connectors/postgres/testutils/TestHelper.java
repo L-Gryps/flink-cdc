@@ -49,7 +49,7 @@ public class TestHelper {
         JdbcConfiguration jdbcConfiguration = defaultJdbcConfig();
         Configuration.Builder builder = Configuration.create();
         jdbcConfiguration.forEach((field, value) -> builder.with("database." + field, value));
-        builder.with(RelationalDatabaseConnectorConfig.SERVER_NAME, TEST_SERVER)
+        builder.with(RelationalDatabaseConnectorConfig.TOPIC_PREFIX, TEST_SERVER)
                 .with(PostgresConnectorConfig.DROP_SLOT_ON_STOP, true)
                 .with(PostgresConnectorConfig.STATUS_UPDATE_INTERVAL_MS, 100)
                 .with(PostgresConnectorConfig.PLUGIN_NAME, "decoderbufs")

@@ -19,7 +19,7 @@ package org.apache.flink.cdc.connectors.sqlserver.source.reader.fetch;
 
 import org.apache.flink.cdc.connectors.base.config.JdbcSourceConfig;
 import org.apache.flink.cdc.connectors.base.relational.JdbcSourceEventDispatcher;
-import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkDatabaseHistory;
+import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkSchemaHistory;
 import org.apache.flink.cdc.connectors.base.source.meta.offset.Offset;
 import org.apache.flink.cdc.connectors.base.source.meta.split.SourceSplitBase;
 import org.apache.flink.cdc.connectors.base.source.reader.external.JdbcSourceFetchTaskContext;
@@ -55,10 +55,10 @@ import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables.TableFilter;
-import io.debezium.schema.DataCollectionId;
+import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.schema.TopicSelector;
+import io.debezium.spi.schema.DataCollectionId;
 import io.debezium.util.Collect;
-import io.debezium.util.SchemaNameAdjuster;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
@@ -113,10 +113,10 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         // initial stateful objects
         final SqlServerConnectorConfig connectorConfig = getDbzConnectorConfig();
         this.topicSelector = SqlServerTopicSelector.defaultSelector(connectorConfig);
-        EmbeddedFlinkDatabaseHistory.registerHistory(
+        EmbeddedFlinkSchemaHistory.registerHistory(
                 sourceConfig
                         .getDbzConfiguration()
-                        .getString(EmbeddedFlinkDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+                        .getString(EmbeddedFlinkSchemaHistory.SCHEMA_HISTORY_INSTANCE_NAME),
                 sourceSplitBase.getTableSchemas().values());
 
         this.databaseSchema =
@@ -125,7 +125,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
         String serverName = connectorConfig.getLogicalName();
         String dbName = connectorConfig.getJdbcConfig().getDatabase();
-        this.partition = new SqlServerPartition(serverName, dbName, false);
+        this.partition = new SqlServerPartition(serverName, dbName);
 
         validateAndLoadDatabaseHistory(offsetContext, databaseSchema);
 
@@ -167,7 +167,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         this.streamingChangeEventSourceMetrics =
                 changeEventSourceMetricsFactory.getStreamingMetrics(
                         taskContext, queue, metadataProvider);
-        this.errorHandler = new SqlServerErrorHandler(connectorConfig, queue);
+        this.errorHandler = new SqlServerErrorHandler(connectorConfig, queue, errorHandler);
     }
 
     /** Loads the connector's persistent offset (if present) via the given loader. */

@@ -17,7 +17,7 @@
 
 package org.apache.flink.cdc.connectors.mysql.debezium.reader;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 

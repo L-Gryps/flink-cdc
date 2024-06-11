@@ -17,6 +17,7 @@
 
 package org.apache.flink.cdc.connectors.oceanbase.source.offset;
 
+import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.SourceInfoStructMaker;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -41,6 +42,9 @@ public class OceanBaseSourceInfoStructMaker implements SourceInfoStructMaker<Oce
                                 Schema.OPTIONAL_STRING_SCHEMA)
                         .build();
     }
+
+    @Override
+    public void init(String connector, String version, CommonConnectorConfig connectorConfig) {}
 
     @Override
     public Schema schema() {

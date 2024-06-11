@@ -29,20 +29,18 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.Collector;
 
 import io.debezium.config.Configuration;
+import io.debezium.config.Field;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.relational.TableId;
-import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
+import io.debezium.schema.SchemaNameAdjuster;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Test;
 
 import java.util.Collections;
 
-import static io.debezium.config.CommonConnectorConfig.TRANSACTION_TOPIC;
-import static io.debezium.connector.mysql.MySqlConnectorConfig.SERVER_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -54,16 +52,15 @@ public class MySqlRecordEmitterTest {
         Configuration dezConf =
                 JdbcConfiguration.create()
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 100)
-                        .with(TRANSACTION_TOPIC, "fake-topic")
-                        .with(SERVER_NAME, "mysql_binlog_source")
+                        .with("topic.transaction", "fake-topic")
+                        .with("topic.prefix", "mysql_binlog_source")
                         .build();
 
         MySqlConnectorConfig mySqlConfig = new MySqlConnectorConfig(dezConf);
         HeartbeatFactory<TableId> heartbeatFactory =
                 new HeartbeatFactory<>(
                         new MySqlConnectorConfig(dezConf),
-                        TopicSelector.defaultSelector(
-                                mySqlConfig, (id, prefix, delimiter) -> "fake-topic"),
+                        mySqlConfig.getTopicNamingStrategy(Field.create("fake-topic")),
                         SchemaNameAdjuster.create());
         Heartbeat heartbeat = heartbeatFactory.createHeartbeat();
         BinlogOffset fakeOffset = BinlogOffset.ofBinlogFilePosition("fake-file", 15213L);

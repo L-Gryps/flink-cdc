@@ -58,7 +58,7 @@ public class SqlServerValidator implements Validator {
     }
 
     private void checkCdcEnabled(PreparedStatement preparedStatement) throws SQLException {
-        String dbname = properties.getProperty("database.dbname");
+        String dbname = properties.getProperty("database.names");
         preparedStatement.setString(1, dbname);
         if (!preparedStatement.executeQuery().next()) {
             throw new ValidationException(
@@ -83,11 +83,19 @@ public class SqlServerValidator implements Validator {
         DriverManager.registerDriver(new SQLServerDriver());
         String hostname = properties.getProperty("database.hostname");
         String port = properties.getProperty("database.port");
-        String dbname = properties.getProperty("database.dbname");
+        String dbname = properties.getProperty("database.names");
         String userName = properties.getProperty("database.user");
         String userpwd = properties.getProperty("database.password");
         return DriverManager.getConnection(
-                "jdbc:sqlserver://" + hostname + ":" + port + ";" + "databaseName=" + dbname,
+                "jdbc:sqlserver://"
+                        + hostname
+                        + ":"
+                        + port
+                        + ";"
+                        + "databaseName="
+                        + dbname
+                        + ";"
+                        + "encrypt=false",
                 userName,
                 userpwd);
     }

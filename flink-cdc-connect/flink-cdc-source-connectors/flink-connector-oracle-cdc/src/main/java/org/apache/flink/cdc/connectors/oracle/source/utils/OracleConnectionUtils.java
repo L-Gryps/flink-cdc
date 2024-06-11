@@ -59,7 +59,7 @@ public class OracleConnectionUtils {
         Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
         return new OracleConnection(
                 configuration.isEmpty() ? dbzConfiguration : JdbcConfiguration.adapt(configuration),
-                OracleConnectionUtils.class::getClassLoader);
+                true);
     }
 
     /** Fetch current redoLog offsets in Oracle Server. */

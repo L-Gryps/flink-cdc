@@ -17,7 +17,7 @@
 
 package org.apache.flink.cdc.connectors.mysql.source.assigners.state;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 /**
  * A checkpoint of the current state of the containing the currently pending splits that are not yet

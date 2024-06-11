@@ -36,7 +36,7 @@ public class OracleJdbcUrlUtils {
             String hostname = properties.getProperty("database.hostname");
             String port = properties.getProperty("database.port");
             String dbname = properties.getProperty("database.dbname");
-            url = "jdbc:oracle:thin:@" + hostname + ":" + port + ":" + dbname;
+            url = "jdbc:oracle:thin:@" + hostname + ":" + port + "/" + dbname;
         }
         return url;
     }

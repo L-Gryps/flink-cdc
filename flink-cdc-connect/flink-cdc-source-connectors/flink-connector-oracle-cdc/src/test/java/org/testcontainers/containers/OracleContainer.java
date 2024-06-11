@@ -122,7 +122,7 @@ public class OracleContainer extends JdbcDatabaseContainer<OracleContainer> {
 
     @Override
     public String getDriverClassName() {
-        return "oracle.jdbc.driver.OracleDriver";
+        return "oracle.jdbc.OracleDriver";
     }
 
     @Override

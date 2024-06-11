@@ -63,8 +63,8 @@ public class OracleSchema {
         tables.overwriteTable(tables.editOrCreateTable(tableId).create());
 
         try {
-            oracleConnection.readSchemaForCapturedTables(
-                    tables, tableId.catalog(), tableId.schema(), null, false, tableIdSet);
+            oracleConnection.readSchema(
+                    tables, tableId.catalog(), tableId.schema(), null, null, false);
             Table table = tables.forTable(tableId);
             TableChange tableChange = new TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);

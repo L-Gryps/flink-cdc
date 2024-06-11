@@ -20,8 +20,6 @@ package org.apache.flink.cdc.debezium.utils;
 import org.apache.flink.cdc.debezium.DebeziumSourceFunction;
 import org.apache.flink.cdc.debezium.internal.SchemaRecord;
 
-import io.debezium.relational.history.DatabaseHistory;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;

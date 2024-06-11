@@ -19,7 +19,7 @@ package org.apache.flink.cdc.connectors.mysql.source.split;
 
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.Iterator;

@@ -22,10 +22,9 @@ import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges.TableChange;
+import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;

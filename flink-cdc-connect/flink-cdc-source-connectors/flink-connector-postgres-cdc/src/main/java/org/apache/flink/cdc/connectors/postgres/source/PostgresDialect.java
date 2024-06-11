@@ -19,7 +19,6 @@ package org.apache.flink.cdc.connectors.postgres.source;
 
 import org.apache.flink.cdc.connectors.base.config.JdbcSourceConfig;
 import org.apache.flink.cdc.connectors.base.dialect.JdbcDataSourceDialect;
-import org.apache.flink.cdc.connectors.base.relational.connection.JdbcConnectionFactory;
 import org.apache.flink.cdc.connectors.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.flink.cdc.connectors.base.source.assigner.splitter.ChunkSplitter;
 import org.apache.flink.cdc.connectors.base.source.meta.offset.Offset;
@@ -38,16 +37,13 @@ import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresObjectUtils;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
-import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.PostgresReplicationConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges.TableChange;
-import io.debezium.schema.TopicSelector;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -83,10 +79,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                 newPostgresValueConverterBuilder(dbzConfig);
         PostgresConnection jdbc =
                 new PostgresConnection(
-                        dbzConfig.getJdbcConfig(),
-                        valueConverterBuilder,
-                        CONNECTION_NAME,
-                        new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()));
+                        dbzConfig.getJdbcConfig(), valueConverterBuilder, CONNECTION_NAME);
 
         try {
             jdbc.connect();
@@ -104,18 +97,15 @@ public class PostgresDialect implements JdbcDataSourceDialect {
             PostgresConnection jdbcConnection) {
         try {
             PostgresConnectorConfig pgConnectorConfig = sourceConfig.getDbzConnectorConfig();
-            TopicSelector<TableId> topicSelector = PostgresTopicSelector.create(pgConnectorConfig);
             PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder =
                     newPostgresValueConverterBuilder(pgConnectorConfig);
             PostgresSchema schema =
                     PostgresObjectUtils.newSchema(
                             jdbcConnection,
                             pgConnectorConfig,
-                            jdbcConnection.getTypeRegistry(),
-                            topicSelector,
                             valueConverterBuilder.build(jdbcConnection.getTypeRegistry()));
             PostgresTaskContext taskContext =
-                    PostgresObjectUtils.newTaskContext(pgConnectorConfig, schema, topicSelector);
+                    PostgresObjectUtils.newTaskContext(pgConnectorConfig, schema);
             return (PostgresReplicationConnection)
                     createReplicationConnection(
                             taskContext, jdbcConnection, false, pgConnectorConfig);

@@ -18,7 +18,7 @@
 package org.apache.flink.cdc.connectors.sqlserver.source.config;
 
 import org.apache.flink.cdc.connectors.base.config.JdbcSourceConfigFactory;
-import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkDatabaseHistory;
+import org.apache.flink.cdc.connectors.base.source.EmbeddedFlinkSchemaHistory;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnector;
@@ -43,8 +43,9 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
 
         // set database history impl to flink database history
         props.setProperty(
-                "database.history", EmbeddedFlinkDatabaseHistory.class.getCanonicalName());
-        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtask);
+                "schema.history.internal", EmbeddedFlinkSchemaHistory.class.getCanonicalName());
+        props.setProperty(
+                "schema.history.internal.instance.name", UUID.randomUUID() + "_" + subtask);
 
         // hard code server name, because we don't need to distinguish it, docs:
         // Logical name that identifies and provides a namespace for the SQL Server database
@@ -52,13 +53,14 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         // all other connectors, since it is used as a prefix for all Kafka topic names
         // emanating from this connector. Only alphanumeric characters and underscores should be
         // used.
-        props.setProperty("database.server.name", DATABASE_SERVER_NAME);
+        props.setProperty("topic.prefix", DATABASE_SERVER_NAME);
         props.setProperty("database.hostname", checkNotNull(hostname));
         props.setProperty("database.user", checkNotNull(username));
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        props.setProperty("schema.history.internal.skip.unparseable.ddl", String.valueOf(true));
+        props.setProperty("database.names", String.join(",", databaseList));
+        props.setProperty("database.encrypt", String.valueOf(false));
 
         if (tableList != null) {
             props.setProperty("table.include.list", String.join(",", tableList));

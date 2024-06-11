@@ -22,6 +22,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.Attribute;
 import io.debezium.relational.Column;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
@@ -31,9 +32,9 @@ import org.slf4j.LoggerFactory;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -141,10 +142,7 @@ public class OceanBaseConnection extends JdbcConnection {
         } catch (Exception e) {
             LOG.warn("Failed to get global timestamp, use local timestamp instead");
         }
-        return getCurrentTimestamp()
-                .orElseThrow(IllegalStateException::new)
-                .toInstant()
-                .getEpochSecond();
+        return getCurrentTimestamp().orElseThrow(IllegalStateException::new).getEpochSecond();
     }
 
     private long getGlobalTimestamp() throws SQLException {
@@ -157,12 +155,12 @@ public class OceanBaseConnection extends JdbcConnection {
     }
 
     @Override
-    public Optional<Timestamp> getCurrentTimestamp() throws SQLException {
+    public Optional<Instant> getCurrentTimestamp() throws SQLException {
         return queryAndMap(
                 "mysql".equalsIgnoreCase(compatibleMode)
                         ? "SELECT CURRENT_TIMESTAMP"
                         : "SELECT CURRENT_TIMESTAMP FROM DUAL",
-                rs -> rs.next() ? Optional.of(rs.getTimestamp(1)) : Optional.empty());
+                rs -> rs.next() ? Optional.of(rs.getTimestamp(1).toInstant()) : Optional.empty());
     }
 
     /**
@@ -247,6 +245,7 @@ public class OceanBaseConnection extends JdbcConnection {
 
         DatabaseMetaData metadata = connection().getMetaData();
         Map<TableId, List<Column>> columnsByTable = new HashMap<>();
+        Map<TableId, List<Attribute>> attributesByTable = new HashMap<>();
 
         for (TableId tableId : capturedTables) {
             try (ResultSet columnMetadata =
@@ -262,6 +261,7 @@ public class OceanBaseConnection extends JdbcConnection {
                                                 .add(column.create());
                                     });
                 }
+                attributesByTable.putAll(getAttributeDetails(tableId));
             }
         }
 
@@ -273,7 +273,9 @@ public class OceanBaseConnection extends JdbcConnection {
             // Then define the table ...
             List<Column> columns = tableEntry.getValue();
             Collections.sort(columns);
-            tables.overwriteTable(tableEntry.getKey(), columns, pkColumnNames, null);
+            List<Attribute> attributes =
+                    attributesByTable.getOrDefault(tableEntry.getKey(), Collections.emptyList());
+            tables.overwriteTable(tableEntry.getKey(), columns, pkColumnNames, null, attributes);
         }
 
         if (removeTablesNotFoundInJdbc) {

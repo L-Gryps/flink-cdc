@@ -17,10 +17,9 @@
 
 package io.debezium.connector.mysql;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import io.debezium.connector.mysql.strategy.mysql.MySqlGtidSet;
+
+import java.util.*;
 
 /** Utils for handling GTIDs. */
 public class GtidUtils {
@@ -34,15 +33,17 @@ public class GtidUtils {
      * server's GTID set, it will be directly added to the new GTID set.
      */
     public static GtidSet fixRestoredGtidSet(GtidSet serverGtidSet, GtidSet restoredGtidSet) {
-        Map<String, GtidSet.UUIDSet> newSet = new HashMap<>();
-        serverGtidSet.getUUIDSets().forEach(uuidSet -> newSet.put(uuidSet.getUUID(), uuidSet));
-        for (GtidSet.UUIDSet uuidSet : restoredGtidSet.getUUIDSets()) {
-            GtidSet.UUIDSet serverUuidSet = newSet.get(uuidSet.getUUID());
+        Map<String, MySqlGtidSet.UUIDSet> newSet = new HashMap<>();
+        ((MySqlGtidSet) serverGtidSet)
+                .getUUIDSets()
+                .forEach(uuidSet -> newSet.put(uuidSet.getUUID(), uuidSet));
+        for (MySqlGtidSet.UUIDSet uuidSet : ((MySqlGtidSet) restoredGtidSet).getUUIDSets()) {
+            MySqlGtidSet.UUIDSet serverUuidSet = newSet.get(uuidSet.getUUID());
             if (serverUuidSet != null) {
                 long restoredIntervalEnd = getIntervalEnd(uuidSet);
                 List<com.github.shyiko.mysql.binlog.GtidSet.Interval> newIntervals =
                         new ArrayList<>();
-                for (GtidSet.Interval serverInterval : serverUuidSet.getIntervals()) {
+                for (MySqlGtidSet.Interval serverInterval : serverUuidSet.getIntervals()) {
                     if (serverInterval.getEnd() <= restoredIntervalEnd) {
                         newIntervals.add(
                                 new com.github.shyiko.mysql.binlog.GtidSet.Interval(
@@ -56,14 +57,14 @@ public class GtidUtils {
                 }
                 newSet.put(
                         uuidSet.getUUID(),
-                        new GtidSet.UUIDSet(
+                        new MySqlGtidSet.UUIDSet(
                                 new com.github.shyiko.mysql.binlog.GtidSet.UUIDSet(
                                         uuidSet.getUUID(), newIntervals)));
             } else {
                 newSet.put(uuidSet.getUUID(), uuidSet);
             }
         }
-        return new GtidSet(newSet);
+        return new MySqlGtidSet(newSet);
     }
 
     /**
@@ -71,19 +72,21 @@ public class GtidUtils {
      * existing elements in the base GTID set.
      */
     public static GtidSet mergeGtidSetInto(GtidSet base, GtidSet toMerge) {
-        Map<String, GtidSet.UUIDSet> newSet = new HashMap<>();
-        base.getUUIDSets().forEach(uuidSet -> newSet.put(uuidSet.getUUID(), uuidSet));
-        for (GtidSet.UUIDSet uuidSet : toMerge.getUUIDSets()) {
+        Map<String, MySqlGtidSet.UUIDSet> newSet = new HashMap<>();
+        ((MySqlGtidSet) base)
+                .getUUIDSets()
+                .forEach(uuidSet -> newSet.put(uuidSet.getUUID(), uuidSet));
+        for (MySqlGtidSet.UUIDSet uuidSet : ((MySqlGtidSet) toMerge).getUUIDSets()) {
             if (!newSet.containsKey(uuidSet.getUUID())) {
                 newSet.put(uuidSet.getUUID(), uuidSet);
             }
         }
-        return new GtidSet(newSet);
+        return new MySqlGtidSet(newSet);
     }
 
-    private static long getIntervalEnd(GtidSet.UUIDSet uuidSet) {
+    private static long getIntervalEnd(MySqlGtidSet.UUIDSet uuidSet) {
         return uuidSet.getIntervals().stream()
-                .mapToLong(GtidSet.Interval::getEnd)
+                .mapToLong(MySqlGtidSet.Interval::getEnd)
                 .max()
                 .getAsLong();
     }

@@ -36,7 +36,8 @@ import org.apache.flink.cdc.connectors.base.source.reader.external.FetchTask;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
-import io.debezium.connector.mysql.MySqlConnection;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -129,7 +130,9 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         final List<TableId> capturedTableIds = discoverDataCollections(sourceConfig);
 
         try (MySqlConnection jdbc =
-                MySqlConnectionUtils.createMySqlConnection(sourceConfig.getDbzConfiguration())) {
+                MySqlConnectionUtils.createMySqlConnection(
+                        sourceConfig.getDbzConfiguration(),
+                        (MySqlConnectorConfig) sourceConfig.getDbzConnectorConfig())) {
             // fetch table schemas
             Map<TableId, TableChanges.TableChange> tableSchemas = new HashMap<>();
             for (TableId tableId : capturedTableIds) {
@@ -155,7 +158,9 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     @Override
     public MySqlSourceFetchTaskContext createFetchTaskContext(JdbcSourceConfig taskSourceConfig) {
         final MySqlConnection jdbcConnection =
-                MySqlConnectionUtils.createMySqlConnection(taskSourceConfig.getDbzConfiguration());
+                MySqlConnectionUtils.createMySqlConnection(
+                        taskSourceConfig.getDbzConfiguration(),
+                        (MySqlConnectorConfig) taskSourceConfig.getDbzConnectorConfig());
         final BinaryLogClient binaryLogClient =
                 MySqlConnectionUtils.createBinaryClient(taskSourceConfig.getDbzConfiguration());
         return new MySqlSourceFetchTaskContext(

@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.cdc.connectors.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
@@ -336,6 +337,8 @@ public class SqlServerScanFetchTaskTest extends SqlServerSourceTestBase {
 
     public static SqlServerSourceConfigFactory getConfigFactory(
             String databaseName, String[] captureTables, int splitSize) {
+        Properties properties = new Properties();
+        properties.setProperty("database.encrypt", "false");
         return (SqlServerSourceConfigFactory)
                 new SqlServerSourceConfigFactory()
                         .hostname(MSSQL_SERVER_CONTAINER.getHost())
@@ -344,7 +347,8 @@ public class SqlServerScanFetchTaskTest extends SqlServerSourceTestBase {
                         .password(MSSQL_SERVER_CONTAINER.getPassword())
                         .databaseList(databaseName)
                         .tableList(captureTables)
-                        .splitSize(splitSize);
+                        .splitSize(splitSize)
+                        .debeziumProperties(properties);
     }
 
     private boolean executeSql(SqlServerSourceConfig sourceConfig, String[] sqlStatements) {

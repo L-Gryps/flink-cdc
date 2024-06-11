@@ -18,7 +18,7 @@
 package org.apache.flink.cdc.connectors.mysql.source.config;
 
 import org.apache.flink.cdc.common.annotation.Internal;
-import org.apache.flink.cdc.connectors.mysql.debezium.EmbeddedFlinkDatabaseHistory;
+import org.apache.flink.cdc.connectors.mysql.debezium.EmbeddedFlinkSchemaHistory;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
 import org.apache.flink.table.catalog.ObjectPath;
@@ -46,7 +46,7 @@ public class MySqlSourceConfigFactory implements Serializable {
     private String hostname;
     private String username;
     private String password;
-    private ServerIdRange serverIdRange;
+    private ServerIdRange serverIdRange = new ServerIdRange(5400, 6400);
     private List<String> databaseList;
     private List<String> tableList;
     private String serverTimeZone = ZoneId.systemDefault().getId();
@@ -300,21 +300,22 @@ public class MySqlSourceConfigFactory implements Serializable {
     public MySqlSourceConfig createConfig(int subtaskId, String serverName) {
         checkSupportCheckpointsAfterTasksFinished(closeIdleReaders);
         Properties props = new Properties();
-        props.setProperty("database.server.name", serverName);
+        props.setProperty("topic.prefix", serverName);
         props.setProperty("database.hostname", checkNotNull(hostname));
         props.setProperty("database.user", checkNotNull(username));
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.fetchSize", String.valueOf(fetchSize));
         props.setProperty("database.responseBuffering", "adaptive");
-        props.setProperty("database.serverTimezone", serverTimeZone);
+        props.setProperty("database.connectionTimeZone", serverTimeZone);
         // database history
         props.setProperty(
-                "database.history", EmbeddedFlinkDatabaseHistory.class.getCanonicalName());
+                "schema.history.internal", EmbeddedFlinkSchemaHistory.class.getCanonicalName());
         props.setProperty(
-                "database.history.instance.name", UUID.randomUUID().toString() + "_" + subtaskId);
-        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
-        props.setProperty("database.history.refer.ddl", String.valueOf(true));
+                "schema.history.internal.instance.name",
+                UUID.randomUUID().toString() + "_" + subtaskId);
+        props.setProperty("schema.history.internal.skip.unparseable.ddl", String.valueOf(true));
+        props.setProperty("schema.history.internal.prefer.ddl", String.valueOf(true));
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeout.toMillis()));
         // the underlying debezium reader should always capture the schema changes and forward them.
         // Note: the includeSchemaChanges parameter is used to control emitting the schema record,
@@ -341,7 +342,7 @@ public class MySqlSourceConfigFactory implements Serializable {
             props.setProperty("table.include.list", String.join(",", tableList));
         }
         if (serverTimeZone != null) {
-            props.setProperty("database.serverTimezone", serverTimeZone);
+            props.setProperty("database.connectionTimeZone", serverTimeZone);
         }
 
         // override the user-defined debezium properties

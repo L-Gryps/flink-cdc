@@ -23,14 +23,15 @@ import io.debezium.config.Configuration;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.ddl.DdlParser;
-import io.debezium.relational.history.DatabaseHistory;
-import io.debezium.relational.history.DatabaseHistoryException;
-import io.debezium.relational.history.DatabaseHistoryListener;
 import io.debezium.relational.history.HistoryRecord;
 import io.debezium.relational.history.HistoryRecordComparator;
+import io.debezium.relational.history.SchemaHistory;
+import io.debezium.relational.history.SchemaHistoryException;
+import io.debezium.relational.history.SchemaHistoryListener;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DatabaseSchema;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,20 +48,21 @@ import static org.apache.flink.cdc.debezium.utils.DatabaseHistoryUtil.retrieveHi
  * DatabaseSchema}, which doesn't need to replay the history anymore.
  *
  * <p>Considering the data structure maintained in the {@link FlinkDatabaseSchemaHistory} is much
- * different from the {@link FlinkDatabaseHistory}, it's not compatible with the {@link
- * FlinkDatabaseHistory}. Because it only maintains the latest schema of the table rather than all
+ * different from the {@link FlinkSchemaHistory}, it's not compatible with the {@link
+ * FlinkSchemaHistory}. Because it only maintains the latest schema of the table rather than all
  * history DDLs, it's useful to prevent OOM when meet massive history DDLs.
  */
-public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
+public class FlinkDatabaseSchemaHistory implements SchemaHistory {
 
-    public static final String DATABASE_HISTORY_INSTANCE_NAME = "database.history.instance.name";
+    public static final String SCHEMA_HISTORY_INTERNAL_INSTANCE_NAME =
+            "schema.history.internal.instance.name";
 
     private final FlinkJsonTableChangeSerializer tableChangesSerializer =
             new FlinkJsonTableChangeSerializer();
 
     private ConcurrentMap<TableId, SchemaRecord> latestTables;
     private String instanceName;
-    private DatabaseHistoryListener listener;
+    private SchemaHistoryListener listener;
     private boolean storeOnlyMonitoredTablesDdl;
     private boolean skipUnparseableDDL;
     private boolean useCatalogBeforeSchema;
@@ -69,11 +71,11 @@ public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
     public void configure(
             Configuration config,
             HistoryRecordComparator comparator,
-            DatabaseHistoryListener listener,
+            SchemaHistoryListener listener,
             boolean useCatalogBeforeSchema) {
-        this.instanceName = config.getString(DATABASE_HISTORY_INSTANCE_NAME);
+        this.instanceName = config.getString(SCHEMA_HISTORY_INTERNAL_INSTANCE_NAME);
         this.listener = listener;
-        this.storeOnlyMonitoredTablesDdl = config.getBoolean(STORE_ONLY_MONITORED_TABLES_DDL);
+        this.storeOnlyMonitoredTablesDdl = config.getBoolean(STORE_ONLY_CAPTURED_TABLES_DDL);
         this.skipUnparseableDDL = config.getBoolean(SKIP_UNPARSEABLE_DDL_STATEMENTS);
         this.useCatalogBeforeSchema = useCatalogBeforeSchema;
 
@@ -98,13 +100,13 @@ public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
     @Override
     public void record(
             Map<String, ?> source, Map<String, ?> position, String databaseName, String ddl)
-            throws DatabaseHistoryException {
+            throws SchemaHistoryException {
         throw new UnsupportedOperationException(
                 String.format(
                         "The %s cannot work with 'debezium.internal.implementation' = 'legacy',"
                                 + "please use %s",
                         FlinkDatabaseSchemaHistory.class.getCanonicalName(),
-                        FlinkDatabaseHistory.class.getCanonicalName()));
+                        FlinkSchemaHistory.class.getCanonicalName()));
     }
 
     @Override
@@ -114,8 +116,9 @@ public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
             String databaseName,
             String schemaName,
             String ddl,
-            TableChanges changes)
-            throws DatabaseHistoryException {
+            TableChanges changes,
+            Instant timestamp)
+            throws SchemaHistoryException {
         for (TableChanges.TableChange change : changes) {
             switch (change.getType()) {
                 case CREATE:
@@ -134,7 +137,8 @@ public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
             }
         }
         listener.onChangeApplied(
-                new HistoryRecord(source, position, databaseName, schemaName, ddl, changes));
+                new HistoryRecord(
+                        source, position, databaseName, schemaName, ddl, changes, timestamp));
     }
 
     @Override
@@ -184,16 +188,6 @@ public class FlinkDatabaseSchemaHistory implements DatabaseHistory {
     @Override
     public void initializeStorage() {
         // do nothing
-    }
-
-    @Override
-    public boolean storeOnlyCapturedTables() {
-        return storeOnlyMonitoredTablesDdl;
-    }
-
-    @Override
-    public boolean skipUnparseableDdlStatements() {
-        return skipUnparseableDDL;
     }
 
     /**

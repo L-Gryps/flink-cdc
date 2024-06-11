@@ -19,10 +19,9 @@ package org.apache.flink.cdc.connectors.mongodb.source.offset;
 
 import org.apache.flink.cdc.connectors.base.source.meta.offset.Offset;
 
+import jakarta.annotation.Nullable;
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
-
-import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;

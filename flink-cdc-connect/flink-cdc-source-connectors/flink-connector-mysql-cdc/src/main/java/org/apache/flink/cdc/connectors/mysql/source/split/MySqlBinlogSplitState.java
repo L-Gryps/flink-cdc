@@ -21,8 +21,7 @@ import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
 
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges.TableChange;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 

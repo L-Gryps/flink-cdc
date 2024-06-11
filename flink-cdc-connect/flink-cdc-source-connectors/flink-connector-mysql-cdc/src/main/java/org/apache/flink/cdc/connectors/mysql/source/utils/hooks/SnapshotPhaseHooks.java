@@ -17,7 +17,7 @@
 
 package org.apache.flink.cdc.connectors.mysql.source.utils.hooks;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Serializable;
 

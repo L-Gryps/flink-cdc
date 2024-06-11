@@ -40,7 +40,8 @@ import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.CloseableIterator;
 
-import io.debezium.connector.mysql.MySqlConnection;
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConnection;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -240,7 +241,8 @@ public class MySqlChangeEventSourceExampleTest {
         properties.put("database.serverTimezone", ZoneId.of("UTC").toString());
         io.debezium.config.Configuration configuration =
                 io.debezium.config.Configuration.from(properties);
-        return MySqlConnectionUtils.createMySqlConnection(configuration);
+        return MySqlConnectionUtils.createMySqlConnection(
+                configuration, new MySqlConnectorConfig(configuration));
     }
 
     private void makeBinlogEvents(JdbcConnection connection, String tableId) throws SQLException {
