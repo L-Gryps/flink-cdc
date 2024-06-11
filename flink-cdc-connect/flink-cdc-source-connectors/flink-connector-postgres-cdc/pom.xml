@@ -61,16 +61,9 @@ limitations under the License.
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-postgres</artifactId>
             <version>${debezium.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
-            <!-- fix CVE-2022-26520 https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-26520  -->
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>42.7.3</version>

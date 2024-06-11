@@ -47,8 +47,8 @@ limitations under the License.
 
         <!-- Drivers -->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
@@ -188,8 +188,8 @@ limitations under the License.
                     <artifactItems>
 
                         <artifactItem>
-                            <groupId>mysql</groupId>
-                            <artifactId>mysql-connector-java</artifactId>
+                            <groupId>com.mysql</groupId>
+                            <artifactId>mysql-connector-j</artifactId>
                             <version>${mysql.driver.version}</version>
                             <destFileName>mysql-driver.jar</destFileName>
                             <type>jar</type>
