@@ -33,7 +33,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * A builder to build a SourceFunction which can read snapshot and continue to consume log miner.
  */
-@Deprecated
 public class OracleSource {
 
     private static final String DATABASE_SERVER_NAME = "oracle_logminer";
