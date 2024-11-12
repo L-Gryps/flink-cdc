@@ -815,6 +815,7 @@ limitations under the License.
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>java11</id>
             <activation>
@@ -838,20 +839,8 @@ limitations under the License.
                             <artifactId>maven-surefire-plugin</artifactId>
                             <configuration>
                                 <excludedGroups>
-                                    ${surefire.excludedGroups.github-actions},
-                                    ${surefire.excludedGroups.adaptive-scheduler},
                                     ${surefire.excludedGroups.jdk},
                                 </excludedGroups>
-                            </configuration>
-                        </plugin>
-                        <plugin>
-                            <groupId>org.apache.maven.plugins</groupId>
-                            <artifactId>maven-javadoc-plugin</artifactId>
-                            <configuration>
-                                <additionalJOptions>
-                                    <additionalJOption>--add-exports=java.base/sun.net.util=ALL-UNNAMED</additionalJOption>
-                                    <additionalJOption>--add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED</additionalJOption>
-                                </additionalJOptions>
                             </configuration>
                         </plugin>
                     </plugins>
@@ -866,10 +855,15 @@ limitations under the License.
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.0</version>
                         <configuration>
-                            <source>11</source>
-                            <target>11</target>
-                            <compilerArgs combine.children="append">
+                            <source>${maven.compiler.target}</source>
+                            <target>${maven.compiler.target}</target>
+                            <!-- The semantics of this option are reversed, see MCOMPILER-209. -->
+                            <useIncrementalCompilation>false</useIncrementalCompilation>
+                            <compilerArgs>
+                                <!-- Prevents recompilation due to missing package-info.class, see MCOMPILER-205 -->
+                                <arg>-Xpkginfo:always</arg>
                                 <arg>--add-exports=java.base/sun.net.util=ALL-UNNAMED</arg>
                                 <arg>--add-exports=java.management/sun.management=ALL-UNNAMED</arg>
                                 <arg>--add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED</arg>
