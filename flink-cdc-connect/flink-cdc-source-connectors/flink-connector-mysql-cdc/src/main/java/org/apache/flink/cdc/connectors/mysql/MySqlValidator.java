@@ -188,7 +188,7 @@ public class MySqlValidator implements Validator {
 
     /** Check whether the server timezone matches the configured timezone. */
     private void checkTimeZone(JdbcConnection connection) throws SQLException {
-        String timeZoneProperty = dbzProperties.getProperty("database.serverTimezone");
+        String timeZoneProperty = dbzProperties.getProperty("database.connectionTimeZone");
         if (timeZoneProperty == null) {
             LOG.warn(
                     "{} is not set, which might cause data inconsistencies for time-related fields.",

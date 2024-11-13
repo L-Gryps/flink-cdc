@@ -238,7 +238,7 @@ public class MySqlChangeEventSourceExampleTest {
         properties.put("database.port", String.valueOf(MYSQL_CONTAINER.getDatabasePort()));
         properties.put("database.user", inventoryDatabase.getUsername());
         properties.put("database.password", inventoryDatabase.getPassword());
-        properties.put("database.serverTimezone", ZoneId.of("UTC").toString());
+        properties.put("database.connectionTimeZone", ZoneId.of("UTC").toString());
         io.debezium.config.Configuration configuration =
                 io.debezium.config.Configuration.from(properties);
         return MySqlConnectionUtils.createMySqlConnection(

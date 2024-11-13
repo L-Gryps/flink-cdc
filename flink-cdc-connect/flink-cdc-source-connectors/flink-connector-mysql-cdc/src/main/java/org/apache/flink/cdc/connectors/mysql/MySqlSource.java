@@ -191,7 +191,7 @@ public class MySqlSource {
                 props.setProperty("table.include.list", String.join(",", tableList));
             }
             if (serverTimeZone != null) {
-                props.setProperty("database.serverTimezone", serverTimeZone);
+                props.setProperty("database.connectionTimeZone", serverTimeZone);
             }
 
             DebeziumOffset specificOffset = null;

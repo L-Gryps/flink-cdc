@@ -65,7 +65,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.fetchSize", String.valueOf(fetchSize));
         props.setProperty("database.responseBuffering", "adaptive");
-        props.setProperty("database.serverTimezone", serverTimeZone);
+        props.setProperty("database.connectionTimeZone", serverTimeZone);
         // database history
         props.setProperty(
                 "schema.history.internal", EmbeddedFlinkSchemaHistory.class.getCanonicalName());
@@ -99,7 +99,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
             props.setProperty("table.include.list", String.join(",", tableList));
         }
         if (serverTimeZone != null) {
-            props.setProperty("database.serverTimezone", serverTimeZone);
+            props.setProperty("database.connectionTimeZone", serverTimeZone);
         }
 
         // override the user-defined debezium properties

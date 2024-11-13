@@ -821,4 +821,13 @@ limitations under the License.
             </build>
         </profile>
     </profiles>
+
+    <distributionManagement>
+        <repository>
+            <id>maven-releases</id>
+            <name>releases</name>
+            <url>http://mvn1.xugu.com/repository/maven-releases/</url>
+        </repository>
+    </distributionManagement>
+
 </project>

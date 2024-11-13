@@ -713,6 +713,7 @@ public class MySqlSourceITCase extends MySqlSourceTestBase {
                         .password(customDatabase.getPassword())
                         .deserializer(new StringDebeziumDeserializationSchema())
                         .serverId(getServerId())
+                        .serverTimeZone("UTC")
                         .build();
         DataStreamSource<String> stream =
                 env.fromSource(source, WatermarkStrategy.noWatermarks(), "MySQL CDC Source");
@@ -1195,7 +1196,7 @@ public class MySqlSourceITCase extends MySqlSourceTestBase {
         properties.put("database.port", String.valueOf(MYSQL_CONTAINER.getDatabasePort()));
         properties.put("database.user", customDatabase.getUsername());
         properties.put("database.password", customDatabase.getPassword());
-        properties.put("database.serverTimezone", ZoneId.of("UTC").toString());
+        properties.put("database.connectionTimeZone", ZoneId.of("UTC").toString());
         io.debezium.config.Configuration configuration =
                 io.debezium.config.Configuration.from(properties);
         return DebeziumUtils.createMySqlConnection(configuration, new Properties());
