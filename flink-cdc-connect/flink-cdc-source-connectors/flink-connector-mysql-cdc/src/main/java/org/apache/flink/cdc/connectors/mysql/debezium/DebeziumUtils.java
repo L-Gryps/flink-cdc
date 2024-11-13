@@ -252,7 +252,8 @@ public class DebeziumUtils {
 
     public static BinlogOffset findBinlogOffset(
             long targetMs, MySqlConnection connection, MySqlSourceConfig mySqlSourceConfig) {
-        MySqlConnection.MySqlConnectionConfiguration config = connection.connectionConfig();
+        MySqlConnectionConfiguration config =
+                (MySqlConnectionConfiguration) connection.connectionConfig();
         BinaryLogClient client =
                 new BinaryLogClient(
                         config.hostname(), config.port(), config.username(), config.password());

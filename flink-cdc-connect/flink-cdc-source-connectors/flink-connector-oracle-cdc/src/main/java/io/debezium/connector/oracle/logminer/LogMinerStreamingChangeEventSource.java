@@ -292,7 +292,7 @@ public class LogMinerStreamingChangeEventSource
                                 streamingMetrics.setLastBatchProcessingDuration(
                                         Duration.between(start, Instant.now()));
                                 captureSessionMemoryStatistics(jdbcConnection);
-                                startScn = processor.process(partition, startScn, endScn);
+                                startScn = processor.process(startScn, endScn);
                             }
                             pauseBetweenMiningSessions();
                         }

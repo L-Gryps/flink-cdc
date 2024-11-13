@@ -136,7 +136,8 @@ public class MySqlSourceReaderTest extends MySqlSourceTestBase {
             Map<TableId, TableChanges.TableChange> tableSchemas =
                     TableDiscoveryUtils.discoverSchemaForCapturedTables(
                             new MySqlPartition(
-                                    sourceConfig.getMySqlConnectorConfig().getLogicalName()),
+                                    sourceConfig.getMySqlConnectorConfig().getLogicalName(),
+                                    jdbc.database()),
                             sourceConfig,
                             jdbc);
             TableId tableId0 = new TableId(customerDatabase.getDatabaseName(), null, "customers");

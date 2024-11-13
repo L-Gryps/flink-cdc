@@ -19,6 +19,7 @@ package org.apache.flink.cdc.connectors.mysql.source.split;
 
 import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
 
+import io.debezium.relational.Attribute;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableEditor;
@@ -129,6 +130,16 @@ public class MySqlBinlogSplitTest {
 
         @Override
         public String comment() {
+            return null;
+        }
+
+        @Override
+        public List<Attribute> attributes() {
+            return List.of();
+        }
+
+        @Override
+        public Attribute attributeWithName(String name) {
             return null;
         }
 
