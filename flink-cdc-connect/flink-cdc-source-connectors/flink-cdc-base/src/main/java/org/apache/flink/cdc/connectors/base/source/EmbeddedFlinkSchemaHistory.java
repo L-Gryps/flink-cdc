@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * A {@link DatabaseHistory} implementation which store the latest table schema in Flink state.
+ * A {@link SchemaHistory} implementation which store the latest table schema in Flink state.
  *
  * <p>It stores/recovers history using data offered by {@link SourceSplitState}.
  */
