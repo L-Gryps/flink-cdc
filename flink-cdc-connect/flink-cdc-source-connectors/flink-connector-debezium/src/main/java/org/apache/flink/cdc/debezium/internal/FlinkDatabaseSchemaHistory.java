@@ -63,8 +63,6 @@ public class FlinkDatabaseSchemaHistory implements SchemaHistory {
     private ConcurrentMap<TableId, SchemaRecord> latestTables;
     private String instanceName;
     private SchemaHistoryListener listener;
-    private boolean storeOnlyMonitoredTablesDdl;
-    private boolean skipUnparseableDDL;
     private boolean useCatalogBeforeSchema;
 
     @Override
@@ -75,8 +73,6 @@ public class FlinkDatabaseSchemaHistory implements SchemaHistory {
             boolean useCatalogBeforeSchema) {
         this.instanceName = config.getString(SCHEMA_HISTORY_INTERNAL_INSTANCE_NAME);
         this.listener = listener;
-        this.storeOnlyMonitoredTablesDdl = config.getBoolean(STORE_ONLY_CAPTURED_TABLES_DDL);
-        this.skipUnparseableDDL = config.getBoolean(SKIP_UNPARSEABLE_DDL_STATEMENTS);
         this.useCatalogBeforeSchema = useCatalogBeforeSchema;
 
         // recover

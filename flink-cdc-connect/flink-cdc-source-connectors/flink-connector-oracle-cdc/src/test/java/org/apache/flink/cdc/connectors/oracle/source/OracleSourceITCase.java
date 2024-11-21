@@ -401,7 +401,7 @@ public class OracleSourceITCase extends OracleSourceTestBase {
                                     e,
                                     String.format(
                                             "Chunk key column '%s' doesn't exist in the primary key [%s] of the table %s.",
-                                            chunkColumn, "ID", "customer.DEBEZIUM.CUSTOMERS"))
+                                            chunkColumn, "ID", "ORCLCDB.DEBEZIUM.CUSTOMERS"))
                             .isPresent());
         }
     }
@@ -551,7 +551,7 @@ public class OracleSourceITCase extends OracleSourceTestBase {
                                 + " 'database-name' = '%s',"
                                 + " 'schema-name' = '%s',"
                                 + " 'table-name' = '%s',"
-                                + " 'scan.incremental.snapshot.enabled' = 'false',"
+                                + " 'scan.incremental.snapshot.enabled' = 'true',"
                                 + " 'debezium.log.mining.strategy' = 'online_catalog',"
                                 + " 'debezium.schema.history.internal.store.only.captured.tables.ddl' = 'true',"
                                 + " 'scan.incremental.snapshot.backfill.skip' = '%s'"

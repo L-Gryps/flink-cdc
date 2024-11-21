@@ -43,20 +43,20 @@ class GtidUtilsTest {
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
                 .isEqualTo(UUID1 + ":1-50");
 
-        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200,"+ UUID2 + ":20-200");
+        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200," + UUID2 + ":20-200");
         restoredGtidSet = new MySqlGtidSet(UUID1 + ":106-150");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
-                .isEqualTo(UUID1 + ":1-100:102-150,"+ UUID2 + ":20-200");
+                .isEqualTo(UUID1 + ":1-100:102-150," + UUID2 + ":20-200");
 
-        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200,"+ UUID2 + ":20-200");
-        restoredGtidSet = new MySqlGtidSet(UUID1 + ":106-150,"+ UUID3 + ":1-100");
+        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200," + UUID2 + ":20-200");
+        restoredGtidSet = new MySqlGtidSet(UUID1 + ":106-150," + UUID3 + ":1-100");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
-                .isEqualTo(UUID1 + ":1-100:102-150,"+ UUID2 + ":20-200,"+ UUID3 + ":1-100");
+                .isEqualTo(UUID1 + ":1-100:102-150," + UUID2 + ":20-200," + UUID3 + ":1-100");
 
-        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200,"+ UUID2 + ":20-200");
-        restoredGtidSet = new MySqlGtidSet(UUID1 + ":106-150:152-200,"+ UUID3 + ":1-100");
+        serverGtidSet = new MySqlGtidSet(UUID1 + ":1-100:102-200," + UUID2 + ":20-200");
+        restoredGtidSet = new MySqlGtidSet(UUID1 + ":106-150:152-200," + UUID3 + ":1-100");
         assertThat(fixRestoredGtidSet(serverGtidSet, restoredGtidSet).toString())
-                .isEqualTo(UUID1 + ":1-100:102-200,"+ UUID2 + ":20-200,"+ UUID3 + ":1-100");
+                .isEqualTo(UUID1 + ":1-100:102-200," + UUID2 + ":20-200," + UUID3 + ":1-100");
     }
 
     @Test
@@ -67,10 +67,12 @@ class GtidUtilsTest {
 
         base = new MySqlGtidSet(UUID1 + ":1-100");
         toMerge = new MySqlGtidSet(UUID2 + ":1-10");
-        assertThat(mergeGtidSetInto(base, toMerge).toString()).isEqualTo(UUID1 + ":1-100,"+ UUID2 + ":1-10");
+        assertThat(mergeGtidSetInto(base, toMerge).toString())
+                .isEqualTo(UUID1 + ":1-100," + UUID2 + ":1-10");
 
-        base = new MySqlGtidSet(UUID1 + ":1-100,"+ UUID3 + ":1-100");
-        toMerge = new MySqlGtidSet(UUID1 + ":1-10,"+ UUID2 + ":1-10");
-        assertThat(mergeGtidSetInto(base, toMerge).toString()).isEqualTo(UUID1 + ":1-100,"+ UUID2 + ":1-10,"+ UUID3 + ":1-100");
+        base = new MySqlGtidSet(UUID1 + ":1-100," + UUID3 + ":1-100");
+        toMerge = new MySqlGtidSet(UUID1 + ":1-10," + UUID2 + ":1-10");
+        assertThat(mergeGtidSetInto(base, toMerge).toString())
+                .isEqualTo(UUID1 + ":1-100," + UUID2 + ":1-10," + UUID3 + ":1-100");
     }
 }

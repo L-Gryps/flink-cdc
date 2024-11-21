@@ -63,6 +63,7 @@ public class FlinkOffsetBackingStore implements OffsetBackingStore {
 
     public static final String OFFSET_STATE_VALUE = "offset.storage.flink.state.value";
     public static final int FLUSH_TIMEOUT_SECONDS = 10;
+    private final Map<String, Set<Map<String, Object>>> connectorPartitions = new HashMap<>();
 
     protected Map<ByteBuffer, ByteBuffer> data = new HashMap<>();
     protected ExecutorService executor;
@@ -204,7 +205,7 @@ public class FlinkOffsetBackingStore implements OffsetBackingStore {
     }
 
     @Override
-    public Set<Map<String, Object>> connectorPartitions(String s) {
-        return Collections.emptySet();
+    public Set<Map<String, Object>> connectorPartitions(String connectorName) {
+        return connectorPartitions.getOrDefault(connectorName, Collections.emptySet());
     }
 }

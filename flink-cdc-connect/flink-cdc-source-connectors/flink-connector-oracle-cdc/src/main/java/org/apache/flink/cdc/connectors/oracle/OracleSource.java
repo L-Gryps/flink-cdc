@@ -180,7 +180,7 @@ public class OracleSource {
                     break;
 
                 case LATEST_OFFSET:
-                    props.setProperty("snapshot.mode", "no_data");
+                    props.setProperty("snapshot.mode", "schema_only");
                     break;
 
                 default:

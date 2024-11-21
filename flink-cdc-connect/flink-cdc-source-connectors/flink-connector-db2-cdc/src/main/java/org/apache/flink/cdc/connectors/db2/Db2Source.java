@@ -29,6 +29,7 @@ import java.util.Properties;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Source for DB2 CDC connector. */
+@Deprecated
 public class Db2Source {
     private static final String DB2_DATABASE_SERVER_NAME = "db2_cdc_source";
 

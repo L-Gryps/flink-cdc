@@ -58,7 +58,7 @@ limitations under the License.
     </scm>
 
     <properties>
-        <revision>3.2-SNAPSHOT</revision>
+        <revision>3.2-jdk11</revision>
         <java.version>11</java.version>
         <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -824,8 +824,8 @@ limitations under the License.
 
     <distributionManagement>
         <repository>
-            <id>maven-releases</id>
-            <name>releases</name>
+            <id>release</id>
+            <name>xugu-releases</name>
             <url>http://mvn1.xugu.com/repository/maven-releases/</url>
         </repository>
     </distributionManagement>

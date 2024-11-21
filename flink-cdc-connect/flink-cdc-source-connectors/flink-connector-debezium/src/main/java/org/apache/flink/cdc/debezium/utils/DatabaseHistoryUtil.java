@@ -44,8 +44,8 @@ public class DatabaseHistoryUtil {
     private static final Map<String, Collection<SchemaRecord>> HISTORY = new HashMap<>();
 
     /**
-     * The schema history will be clean up once {@link SchemaHistory#stop()}, the checkpoint
-     * should fail when this happens.
+     * The schema history will be clean up once {@link SchemaHistory#stop()}, the checkpoint should
+     * fail when this happens.
      */
     private static final Map<String, Boolean> HISTORY_CLEANUP_STATUS = new HashMap<>();
 
