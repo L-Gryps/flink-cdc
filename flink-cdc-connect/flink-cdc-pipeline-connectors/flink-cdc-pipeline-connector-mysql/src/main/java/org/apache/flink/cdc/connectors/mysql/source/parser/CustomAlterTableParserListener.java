@@ -130,7 +130,8 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
     public void enterColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
         parser.runIfNotNull(
                 () -> {
-                    String columnName = parser.parseName(ctx.uid());
+                    MySqlParser.FullColumnNameContext fullColumnNameContext = ctx.fullColumnName();
+                    String columnName = parser.parseName(fullColumnNameContext.uid());
                     ColumnEditor columnEditor = Column.editor().name(columnName);
                     if (columnDefinitionListener == null) {
                         columnDefinitionListener =
