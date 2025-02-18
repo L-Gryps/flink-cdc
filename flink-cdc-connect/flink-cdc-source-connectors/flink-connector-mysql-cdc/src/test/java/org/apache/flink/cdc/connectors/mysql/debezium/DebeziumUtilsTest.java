@@ -41,9 +41,9 @@ public class DebeziumUtilsTest {
         MySqlSourceConfig configWithoutUseSSL = getConfig(jdbcProps);
         MySqlConnection connection0 = DebeziumUtils.createMySqlConnection(configWithoutUseSSL);
         assertJdbcUrl(
-                "jdbc:mysql://localhost:3306/?useSSL=false&connectTimeout=20000&useInformationSchema=true"
+                "jdbc:mysql://localhost:3306/?useSSL=false&useInformationSchema=true"
                         + "&nullCatalogMeansCurrent=false&characterSetResults=UTF-8&onlyTest=test"
-                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true",
+                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true&connectTimeout=20000",
                 connection0.connectionString());
 
         // test with set useSSL=false
@@ -51,9 +51,9 @@ public class DebeziumUtilsTest {
         MySqlSourceConfig configNotUseSSL = getConfig(jdbcProps);
         MySqlConnection connection1 = DebeziumUtils.createMySqlConnection(configNotUseSSL);
         assertJdbcUrl(
-                "jdbc:mysql://localhost:3306/?connectTimeout=20000&useInformationSchema=true"
+                "jdbc:mysql://localhost:3306/?useInformationSchema=true"
                         + "&nullCatalogMeansCurrent=false&characterSetResults=UTF-8&useSSL=false&onlyTest=test"
-                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true",
+                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true&connectTimeout=20000",
                 connection1.connectionString());
 
         // test with set useSSL=true
@@ -61,9 +61,9 @@ public class DebeziumUtilsTest {
         MySqlSourceConfig configUseSSL = getConfig(jdbcProps);
         MySqlConnection connection2 = DebeziumUtils.createMySqlConnection(configUseSSL);
         assertJdbcUrl(
-                "jdbc:mysql://localhost:3306/?connectTimeout=20000&useInformationSchema=true"
+                "jdbc:mysql://localhost:3306/?useInformationSchema=true"
                         + "&nullCatalogMeansCurrent=false&characterSetResults=UTF-8&useSSL=true&onlyTest=test"
-                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true",
+                        + "&zeroDateTimeBehavior=CONVERT_TO_NULL&characterEncoding=UTF-8&useUnicode=true&connectTimeout=20000",
                 connection2.connectionString());
     }
 

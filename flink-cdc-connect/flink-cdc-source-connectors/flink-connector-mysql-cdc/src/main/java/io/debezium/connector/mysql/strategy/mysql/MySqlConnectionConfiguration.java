@@ -43,7 +43,7 @@ public class MySqlConnectionConfiguration extends AbstractConnectionConfiguratio
 
     private static final String JDBC_PROPERTY_CONNECTION_TIME_ZONE = "connectionTimeZone";
     public static final String JDBC_URL_PATTERN =
-            "${protocol}://${hostname}:${port}/?useInformationSchema=true&nullCatalogMeansCurrent=false&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8&zeroDateTimeBehavior=CONVERT_TO_NULL&connectTimeout=${connectTimeout}";
+            "${protocol}://${hostname}:${port}/?useSSL=false&useInformationSchema=true&nullCatalogMeansCurrent=false&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8&zeroDateTimeBehavior=CONVERT_TO_NULL&connectTimeout=${connectTimeout}";
     private final JdbcConnection.ConnectionFactory factory;
     private final String urlPattern;
 
@@ -65,7 +65,10 @@ public class MySqlConnectionConfiguration extends AbstractConnectionConfiguratio
         Properties combinedProperties = new Properties();
         combinedProperties.putAll(jdbcProperties);
 
-        StringBuilder jdbcUrlStringBuilder = new StringBuilder(JDBC_URL_PATTERN);
+        StringBuilder jdbcUrlStringBuilder =
+                jdbcProperties.getProperty("useSSL") == null
+                        ? new StringBuilder(JDBC_URL_PATTERN)
+                        : new StringBuilder(URL_PATTERN);
         combinedProperties.forEach(
                 (key, value) -> {
                     jdbcUrlStringBuilder.append("&").append(key).append("=").append(value);

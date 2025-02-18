@@ -18,6 +18,7 @@
 package org.apache.flink.cdc.connectors.mysql;
 
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
+import org.apache.flink.cdc.connectors.mysql.utils.OptionUtils;
 import org.apache.flink.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.flink.cdc.debezium.DebeziumSourceFunction;
 import org.apache.flink.cdc.debezium.internal.DebeziumOffset;
@@ -183,6 +184,8 @@ public class MySqlSource {
 
             if (serverId != null) {
                 props.setProperty("database.server.id", String.valueOf(serverId));
+            } else {
+                props.setProperty("database.server.id", OptionUtils.randomServerId());
             }
             if (databaseList != null) {
                 props.setProperty("database.include.list", String.join(",", databaseList));

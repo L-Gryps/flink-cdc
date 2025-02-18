@@ -28,6 +28,7 @@ import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.storage.Converter;
 import org.apache.kafka.connect.storage.OffsetBackingStore;
 import org.apache.kafka.connect.storage.OffsetStorageWriter;
+import org.apache.kafka.connect.storage.OffsetUtils;
 import org.apache.kafka.connect.util.Callback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -146,6 +147,11 @@ public class FlinkOffsetBackingStore implements OffsetBackingStore {
         } catch (TimeoutException e) {
             LOG.error("Timed out waiting to flush offsets to storage.", e);
             offsetWriter.cancelFlush();
+        }
+        for (Map.Entry<ByteBuffer, ByteBuffer> mapEntry : data.entrySet()) {
+            byte[] key = (mapEntry.getKey() != null) ? mapEntry.getKey().array() : null;
+            byte[] value = (mapEntry.getValue() != null) ? mapEntry.getValue().array() : null;
+            OffsetUtils.processPartitionKey(key, value, valueConverter, connectorPartitions);
         }
     }
 

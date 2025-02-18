@@ -75,7 +75,7 @@ public class MySqlDataSourceOptions {
     public static final ConfigOption<String> SERVER_ID =
             ConfigOptions.key("server-id")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("5400-6400")
                     .withDescription(
                             "A numeric ID or a numeric ID range of this database client, "
                                     + "The numeric ID syntax is like '5400', the numeric ID range syntax "

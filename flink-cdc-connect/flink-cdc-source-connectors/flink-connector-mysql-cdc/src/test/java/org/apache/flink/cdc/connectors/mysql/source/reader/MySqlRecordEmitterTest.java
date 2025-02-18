@@ -17,6 +17,15 @@
 
 package org.apache.flink.cdc.connectors.mysql.source.reader;
 
+import io.debezium.DebeziumException;
+import io.debezium.config.CommonConnectorConfig;
+import io.debezium.connector.mysql.MySqlTopicSelector;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
+import io.debezium.connector.mysql.strategy.mysql.MySqlConnectionConfiguration;
+import io.debezium.schema.DefaultTopicNamingStrategy;
+import io.debezium.schema.SchemaTopicNamingStrategy;
+import io.debezium.schema.TopicSelector;
+import io.debezium.spi.topic.TopicNamingStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cdc.connectors.mysql.source.metrics.MySqlSourceReaderMetrics;
 import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
@@ -41,6 +50,8 @@ import org.junit.Test;
 
 import java.util.Collections;
 
+import static io.debezium.config.CommonConnectorConfig.TOPIC_PREFIX;
+import static io.debezium.schema.AbstractTopicNamingStrategy.TOPIC_TRANSACTION;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -52,8 +63,8 @@ public class MySqlRecordEmitterTest {
         Configuration dezConf =
                 JdbcConfiguration.create()
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 100)
-                        .with("topic.transaction", "fake-topic")
-                        .with("topic.prefix", "mysql_binlog_source")
+                        .with(TOPIC_TRANSACTION, "fake-topic")
+                        .with(TOPIC_PREFIX, "mysql_binlog_source")
                         .build();
 
         MySqlConnectorConfig mySqlConfig = new MySqlConnectorConfig(dezConf);

@@ -19,6 +19,7 @@ package org.apache.flink.cdc.connectors.mysql.source.config;
 
 import org.apache.flink.cdc.common.annotation.Experimental;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
+import org.apache.flink.cdc.connectors.mysql.utils.OptionUtils;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 
@@ -76,7 +77,7 @@ public class MySqlSourceOptions {
     public static final ConfigOption<String> SERVER_ID =
             ConfigOptions.key("server-id")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(OptionUtils.randomServerId())
                     .withDescription(
                             "A numeric ID or a numeric ID range of this database client, "
                                     + "The numeric ID syntax is like '5400', the numeric ID range syntax "

@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Random;
 
 /** A utility class to print configuration of connectors. */
 public class OptionUtils {
@@ -38,5 +39,10 @@ public class OptionUtils {
         for (String key : hideMap.keySet()) {
             LOG.info("{} = {}", key, hideMap.get(key));
         }
+    }
+    public static String randomServerId() {
+        int lowestServerId = 5400;
+        int highestServerId = 6400;
+        return String.valueOf(lowestServerId + new Random().nextInt(highestServerId - lowestServerId));
     }
 }

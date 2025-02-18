@@ -17,8 +17,6 @@
 
 package org.apache.flink.cdc.connectors.mysql.source.config;
 
-import jakarta.annotation.Nullable;
-
 import java.io.Serializable;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -81,9 +79,9 @@ public class ServerIdRange implements Serializable {
      * Returns a {@link ServerIdRange} from a server id range string which likes '5400-5408' or a
      * single server id likes '5400'.
      */
-    public static @Nullable ServerIdRange from(@Nullable String range) {
+    public static ServerIdRange from(String range) {
         if (range == null) {
-            return null;
+            return new ServerIdRange(5400, 6400);
         }
         if (range.contains("-")) {
             String[] idArray = range.split("-");

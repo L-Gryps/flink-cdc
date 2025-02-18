@@ -21,6 +21,7 @@ import org.apache.flink.cdc.common.annotation.Internal;
 import org.apache.flink.cdc.connectors.mysql.debezium.EmbeddedFlinkSchemaHistory;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
+import org.apache.flink.cdc.connectors.mysql.utils.OptionUtils;
 import org.apache.flink.table.catalog.ObjectPath;
 
 import java.io.Serializable;
@@ -46,7 +47,7 @@ public class MySqlSourceConfigFactory implements Serializable {
     private String hostname;
     private String username;
     private String password;
-    private ServerIdRange serverIdRange = new ServerIdRange(5400, 6400);
+    private ServerIdRange serverIdRange;
     private List<String> databaseList;
     private List<String> tableList;
     private String serverTimeZone = ZoneId.systemDefault().getId();
@@ -334,6 +335,8 @@ public class MySqlSourceConfigFactory implements Serializable {
         if (serverIdRange != null) {
             int serverId = serverIdRange.getServerId(subtaskId);
             props.setProperty("database.server.id", String.valueOf(serverId));
+        } else {
+            props.setProperty("database.server.id", OptionUtils.randomServerId());
         }
         if (databaseList != null) {
             props.setProperty("database.include.list", String.join(",", databaseList));
