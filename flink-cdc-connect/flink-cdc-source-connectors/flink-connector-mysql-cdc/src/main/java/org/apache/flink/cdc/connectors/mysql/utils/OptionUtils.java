@@ -40,9 +40,11 @@ public class OptionUtils {
             LOG.info("{} = {}", key, hideMap.get(key));
         }
     }
+
     public static String randomServerId() {
         int lowestServerId = 5400;
         int highestServerId = 6400;
-        return String.valueOf(lowestServerId + new Random().nextInt(highestServerId - lowestServerId));
+        return String.valueOf(
+                lowestServerId + new Random().nextInt(highestServerId - lowestServerId));
     }
 }

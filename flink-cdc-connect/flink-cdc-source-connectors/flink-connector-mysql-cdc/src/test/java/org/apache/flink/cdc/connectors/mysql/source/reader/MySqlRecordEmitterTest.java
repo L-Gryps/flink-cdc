@@ -17,15 +17,6 @@
 
 package org.apache.flink.cdc.connectors.mysql.source.reader;
 
-import io.debezium.DebeziumException;
-import io.debezium.config.CommonConnectorConfig;
-import io.debezium.connector.mysql.MySqlTopicSelector;
-import io.debezium.connector.mysql.strategy.mysql.MySqlConnection;
-import io.debezium.connector.mysql.strategy.mysql.MySqlConnectionConfiguration;
-import io.debezium.schema.DefaultTopicNamingStrategy;
-import io.debezium.schema.SchemaTopicNamingStrategy;
-import io.debezium.schema.TopicSelector;
-import io.debezium.spi.topic.TopicNamingStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cdc.connectors.mysql.source.metrics.MySqlSourceReaderMetrics;
 import org.apache.flink.cdc.connectors.mysql.source.offset.BinlogOffset;
@@ -38,12 +29,9 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.Collector;
 
 import io.debezium.config.Configuration;
-import io.debezium.config.Field;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.heartbeat.Heartbeat;
-import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.jdbc.JdbcConfiguration;
-import io.debezium.relational.TableId;
 import io.debezium.schema.SchemaNameAdjuster;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Test;
@@ -68,12 +56,14 @@ public class MySqlRecordEmitterTest {
                         .build();
 
         MySqlConnectorConfig mySqlConfig = new MySqlConnectorConfig(dezConf);
-        HeartbeatFactory<TableId> heartbeatFactory =
-                new HeartbeatFactory<>(
-                        new MySqlConnectorConfig(dezConf),
-                        mySqlConfig.getTopicNamingStrategy(Field.create("fake-topic")),
-                        SchemaNameAdjuster.create());
-        Heartbeat heartbeat = heartbeatFactory.createHeartbeat();
+        Heartbeat heartbeat =
+                mySqlConfig.createHeartbeat(
+                        mySqlConfig.getTopicNamingStrategy(
+                                MySqlConnectorConfig.TOPIC_NAMING_STRATEGY),
+                        SchemaNameAdjuster.create(),
+                        null,
+                        null);
+
         BinlogOffset fakeOffset = BinlogOffset.ofBinlogFilePosition("fake-file", 15213L);
         MySqlRecordEmitter<Void> recordEmitter = createRecordEmitter();
         MySqlBinlogSplitState splitState = createBinlogSplitState();
