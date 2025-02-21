@@ -28,7 +28,9 @@ import io.debezium.connector.oracle.OracleValueConverters;
 import io.debezium.connector.oracle.StreamingAdapter;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
+import io.debezium.schema.DefaultTopicNamingStrategy;
 import io.debezium.schema.SchemaNameAdjuster;
+import io.debezium.spi.topic.TopicNamingStrategy;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import java.sql.Connection;
@@ -205,12 +207,14 @@ public class OracleUtils {
                 new OracleDefaultValueConverter(oracleValueConverters, oracleConnection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
                 dbzOracleConfig.getAdapter().getTableNameCaseSensitivity(oracleConnection);
+        TopicNamingStrategy topicNamingStrategy =
+                DefaultTopicNamingStrategy.create(dbzOracleConfig);
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
                 oracleValueConverters,
                 defaultValueConverter,
                 schemaNameAdjuster,
-                dbzOracleConfig.getTopicNamingStrategy(OracleConnectorConfig.TOPIC_NAMING_STRATEGY),
+                topicNamingStrategy,
                 tableNameCaseSensitivity);
     }
 

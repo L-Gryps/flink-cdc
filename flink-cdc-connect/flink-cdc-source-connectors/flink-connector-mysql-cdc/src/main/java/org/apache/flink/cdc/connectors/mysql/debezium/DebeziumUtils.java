@@ -45,6 +45,7 @@ import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Selectors;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
+import io.debezium.schema.DefaultTopicNamingStrategy;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
 import org.slf4j.Logger;
@@ -109,14 +110,13 @@ public class DebeziumUtils {
     /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
     public static MySqlDatabaseSchema createMySqlDatabaseSchema(
             MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
-        TopicNamingStrategy<TableId> topicSelector =
-                dbzMySqlConfig.getTopicNamingStrategy(MySqlConnectorConfig.TOPIC_NAMING_STRATEGY);
+        TopicNamingStrategy topicNamingStrategy = DefaultTopicNamingStrategy.create(dbzMySqlConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         MySqlValueConverters valueConverters = getValueConverters(dbzMySqlConfig);
         return new MySqlDatabaseSchema(
                 dbzMySqlConfig,
                 valueConverters,
-                topicSelector,
+                topicNamingStrategy,
                 schemaNameAdjuster,
                 isTableIdCaseSensitive);
     }

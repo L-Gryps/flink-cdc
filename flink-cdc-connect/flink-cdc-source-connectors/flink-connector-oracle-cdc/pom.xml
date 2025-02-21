@@ -24,7 +24,7 @@ limitations under the License.
         <version>${revision}</version>
     </parent>
     <properties>
-        <oracle.driver.version>21.6.0.0</oracle.driver.version>
+        <oracle.driver.version>21.9.0.0</oracle.driver.version>
     </properties>
     <modelVersion>4.0.0</modelVersion>
 

@@ -23,7 +23,6 @@ import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.db2.Db2Connection;
 import io.debezium.connector.db2.Db2ConnectorConfig;
 import io.debezium.connector.db2.Db2DatabaseSchema;
@@ -34,6 +33,7 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.DefaultTopicNamingStrategy;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
 import jakarta.annotation.Nullable;
@@ -234,8 +234,8 @@ public class Db2Utils {
                 new Db2ValueConverters(
                         connectorConfig.getDecimalMode(),
                         connectorConfig.getTemporalPrecisionMode());
-        final TopicNamingStrategy<TableId> topicNamingStrategy =
-                connectorConfig.getTopicNamingStrategy(CommonConnectorConfig.TOPIC_NAMING_STRATEGY);
+        final TopicNamingStrategy topicNamingStrategy =
+                DefaultTopicNamingStrategy.create(connectorConfig);
         return new Db2DatabaseSchema(
                 connectorConfig,
                 valueConverters,

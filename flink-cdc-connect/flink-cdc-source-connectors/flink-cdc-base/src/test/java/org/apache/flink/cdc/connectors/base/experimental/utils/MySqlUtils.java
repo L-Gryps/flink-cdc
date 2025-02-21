@@ -21,7 +21,6 @@ import org.apache.flink.cdc.connectors.base.experimental.offset.BinlogOffset;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.types.logical.RowType;
 
-import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlValueConverters;
@@ -32,6 +31,7 @@ import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.DefaultTopicNamingStrategy;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -218,8 +218,7 @@ public class MySqlUtils {
     /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
     public static MySqlDatabaseSchema createMySqlDatabaseSchema(
             MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
-        TopicNamingStrategy<TableId> topicNamingSelector =
-                dbzMySqlConfig.getTopicNamingStrategy(CommonConnectorConfig.TOPIC_NAMING_STRATEGY);
+        TopicNamingStrategy topicNamingSelector = DefaultTopicNamingStrategy.create(dbzMySqlConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         MySqlValueConverters valueConverters = getValueConverters(dbzMySqlConfig);
         return new MySqlDatabaseSchema(
