@@ -61,6 +61,12 @@ limitations under the License.
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-postgres</artifactId>
             <version>${debezium.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>postgresql</artifactId>
+                    <groupId>org.postgresql</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
