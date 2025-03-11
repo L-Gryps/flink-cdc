@@ -71,7 +71,7 @@ public class PostgresQueryUtils {
         final String query =
                 String.format(
                         "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass('%s')",
-                        tableId.toString());
+                        quote(tableId).toString());
 
         return jdbc.queryAndMap(
                 query,
