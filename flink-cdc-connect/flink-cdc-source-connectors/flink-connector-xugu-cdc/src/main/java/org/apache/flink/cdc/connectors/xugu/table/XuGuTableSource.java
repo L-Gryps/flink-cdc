@@ -185,8 +185,7 @@ public class XuGuTableSource implements ScanTableSource, SupportsReadingMetadata
         return Stream.of(XuGuReadableMetadata.values())
                 .collect(
                         Collectors.toMap(
-                                XuGuReadableMetadata::getKey,
-                                XuGuReadableMetadata::getDataType));
+                                XuGuReadableMetadata::getKey, XuGuReadableMetadata::getDataType));
     }
 
     @Override
@@ -277,6 +276,6 @@ public class XuGuTableSource implements ScanTableSource, SupportsReadingMetadata
 
     @Override
     public String asSummaryString() {
-        return "OceanBase-CDC";
+        return "XuGu-CDC";
     }
 }

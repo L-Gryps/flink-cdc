@@ -57,19 +57,21 @@ public class XuGuSourceInfoStructMaker implements SourceInfoStructMaker<XuGuSour
         source.put(XuGuSourceInfo.TABLE_NAME_KEY, sourceInfo.table());
 
         Instant timestamp = sourceInfo.timestamp();
-        source.put(
-                XuGuSourceInfo.TIMESTAMP_KEY,
-                timestamp != null ? timestamp.toEpochMilli() : 0);
+        source.put(XuGuSourceInfo.TIMESTAMP_KEY, timestamp != null ? timestamp.toEpochMilli() : 0);
 
         source.put(
                 XuGuSourceInfo.BINLOG_PARTITION_ID_KEY,
-                sourceInfo.getCurrentPartitionId() != null ? sourceInfo.getCurrentPartitionId() : 0);
+                sourceInfo.getCurrentPartitionId() != null
+                        ? sourceInfo.getCurrentPartitionId()
+                        : 0);
         source.put(
                 XuGuSourceInfo.BINLOG_FILE_NO_KEY,
                 sourceInfo.getCurrentFileNum() != null ? sourceInfo.getCurrentFileNum() : 0);
         source.put(
                 XuGuSourceInfo.BINLOG_FILE_POSITION_KEY,
-                sourceInfo.getCurrentFilePosition() != null ? sourceInfo.getCurrentFilePosition() : 0);
+                sourceInfo.getCurrentFilePosition() != null
+                        ? sourceInfo.getCurrentFilePosition()
+                        : 0);
 
         if (sourceInfo.database() != null) {
             source.put(XuGuSourceInfo.DATABASE_NAME_KEY, sourceInfo.database());
@@ -78,7 +80,9 @@ public class XuGuSourceInfoStructMaker implements SourceInfoStructMaker<XuGuSour
             source.put(XuGuSourceInfo.SCHEMA_NAME_KEY, sourceInfo.tableSchema());
         }
 
-        source.put(XuGuSourceInfo.TRANSACTION_ID_KEY, sourceInfo.getTransactionId() != null ? sourceInfo.getTransactionId() : 0);
+        source.put(
+                XuGuSourceInfo.TRANSACTION_ID_KEY,
+                sourceInfo.getTransactionId() != null ? sourceInfo.getTransactionId() : 0);
 
         return source;
     }

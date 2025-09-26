@@ -17,12 +17,6 @@
 
 package org.apache.flink.cdc.connectors.xugu.source;
 
-import com.xugu.binlog.client.XuGuBinlogClient;
-import com.xugu.binlog.client.api.XuGuEventListener;
-import com.xugu.binlog.client.common.message.DataMessage;
-import com.xugu.binlog.client.common.message.LogMessage;
-import com.xugu.binlog.client.common.offset.XuGuOffset;
-import com.xugu.binlog.client.config.XGReadConnectionConfig;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -45,6 +39,11 @@ import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.xugu.binlog.client.XuGuBinlogClient;
+import com.xugu.binlog.client.api.XuGuEventListener;
+import com.xugu.binlog.client.common.message.LogMessage;
+import com.xugu.binlog.client.common.offset.XuGuOffset;
+import com.xugu.binlog.client.config.XGReadConnectionConfig;
 import io.debezium.connector.SnapshotRecord;
 import io.debezium.relational.TableId;
 import io.debezium.relational.TableSchema;
@@ -116,6 +115,11 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
     private transient ListState<Map<Integer, XuGuOffset>> offsetState;
     private transient OutputCollector<T> outputCollector;
 
+    private transient volatile boolean running;
+    private transient java.util.concurrent.BlockingQueue<SourceRecord> emitQueue;
+    private transient Map<Integer, XuGuOffset> restoredOffsets; // 从状态恢复的偏移
+    private transient Object checkpointLock; // 引用 ctx.getCheckpointLock()
+
     public XuGuRichSourceFunction(
             StartupOptions startupOptions,
             String username,
@@ -150,39 +154,113 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
     @Override
     public void open(final Configuration config) throws Exception {
         super.open(config);
-        this.binlogClient = new XuGuBinlogClient(xgReaderConfig);
         this.outputCollector = new OutputCollector<>();
-        this.connectorConfig =
-                new XuGuConnectorConfig(serverTimeZone, debeziumProperties);
+        this.connectorConfig = new XuGuConnectorConfig(serverTimeZone, debeziumProperties);
         this.sourceInfo = new XuGuSourceInfo(connectorConfig);
+        this.emitQueue = new java.util.concurrent.ArrayBlockingQueue<>(10_000);
     }
 
     @Override
     public void run(SourceContext<T> ctx) throws Exception {
-        outputCollector.context = ctx;
-        try {
-            LOG.info("Start to initial table whitelist");
-            initTableWhiteList();
+        this.running = true;
+        this.checkpointLock = ctx.getCheckpointLock();
+        this.outputCollector.context = ctx;
 
-            if (!startupOptions.isStreamOnly()) {
-                sourceInfo.setSnapshot(SnapshotRecord.TRUE);
-                long startTimestamp = getSnapshotConnection().getCurrentTimestampSss();
-                LOG.info("Snapshot reading started from timestamp: {}", startTimestamp);
+        LOG.info("Start to initial table whitelist");
+        initTableWhiteList();
+
+        if (!startupOptions.isStreamOnly()) {
+            sourceInfo.setSnapshot(SnapshotRecord.TRUE);
+            long startTimestamp = getSnapshotConnection().getCurrentTimestampSss();
+            resolvedTimestamp = startTimestamp;
+
+            synchronized (checkpointLock) {
                 readSnapshotRecords();
-                sourceInfo.setSnapshot(SnapshotRecord.FALSE);
-                LOG.info("Snapshot reading finished");
-                resolvedTimestamp = startTimestamp;
-            } else {
-                LOG.info("Snapshot reading skipped");
             }
+            sourceInfo.setSnapshot(SnapshotRecord.FALSE);
+            LOG.info("Snapshot finished at timestamp {}", startTimestamp);
+        }
 
-            if (!startupOptions.isSnapshotOnly()) {
-                sourceInfo.setSnapshot(SnapshotRecord.FALSE);
-                LOG.info("Change events reading started");
-                readChangeRecords();
+        if (!startupOptions.isSnapshotOnly()) {
+            if (resolvedTimestamp > 0 && xgReaderConfig != null) {
+                xgReaderConfig.setStartTimestamp(resolvedTimestamp);
             }
-        } finally {
-            cancel();
+            this.binlogClient = new XuGuBinlogClient(xgReaderConfig);
+            if (restoredOffsets != null) {
+                binlogClient.restoreOffsets(restoredOffsets);
+                LOG.info("Restored offsets: {}", restoredOffsets);
+            }
+            // 注册监听器
+            binlogClient.addListener(
+                    new XuGuEventListener() {
+                        @Override
+                        public void onEvent(LogMessage message) {
+                            try {
+                                switch (message.getAction()) {
+                                    case INSERT:
+                                    case UPDATE:
+                                    case DELETE:
+                                        {
+                                            SourceRecord r = getChangeRecord(message);
+                                            if (r != null) {
+                                                emitQueue.put(r);
+                                            }
+                                            break;
+                                        }
+                                    default:
+                                        { // DDL
+                                            try {
+                                                // 先刷新 schema（确保后续 DML 使用新 schema）
+                                                TableId tid =
+                                                        tableId(
+                                                                message.getSchemaName(),
+                                                                message.getTableName());
+                                                if (tableSet.contains(tid)) {
+                                                    refreshTableSchema(tid);
+                                                }
+                                                // 如需向下游发出 DDL 事件，可在此构造自定义 SourceRecord 放入 emitQueue
+                                            } catch (Throwable t) {
+                                                onError(
+                                                        new FlinkRuntimeException(
+                                                                "DDL handling failed", t));
+                                            }
+                                        }
+                                }
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                            } catch (Throwable t) {
+                                onError(new FlinkRuntimeException("Listener failed", t));
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            xuguClientException = e;
+                            try {
+                                binlogClient.stop();
+                            } catch (Throwable ignore) {
+                            }
+                        }
+
+                        @Override
+                        public Map<Integer, XuGuOffset> getCurrentOffsets() {
+                            return binlogClient.getCurrentOffsets();
+                        }
+                    });
+
+            sourceInfo.setSnapshot(SnapshotRecord.FALSE);
+            LOG.info("Change events reading started");
+            while (running) {
+                if (xuguClientException != null) {
+                    throw new FlinkRuntimeException("Binlog client error", xuguClientException);
+                }
+                SourceRecord r = emitQueue.poll(1, TimeUnit.SECONDS);
+                if (r != null) {
+                    synchronized (checkpointLock) {
+                        deserializer.deserialize(r, outputCollector);
+                    }
+                }
+            }
         }
     }
 
@@ -227,7 +305,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
 
         for (String table : tableList) {
             if (StringUtils.isNotBlank(table)) {
-                TableId tableId = TableId.parse(table);
+                TableId tableId = TableId.parse(table, false);
                 localTableSet.add(tableId);
             }
         }
@@ -245,12 +323,17 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
                             .map(tableId -> tableId.toString())
                             .collect(Collectors.toList()));
         }
+        LOG.info("Table list: {}", localTableSet);
     }
 
     private TableSchema getTableSchema(TableId tableId) {
         if (databaseSchema == null) {
             databaseSchema =
-                    new XuGuDatabaseSchema(connectorConfig, new XuGuValueConverters(connectorConfig), t -> tableSet.contains(t), false);
+                    new XuGuDatabaseSchema(
+                            connectorConfig,
+                            new XuGuValueConverters(connectorConfig),
+                            t -> tableSet.contains(t),
+                            false);
         }
         TableSchema tableSchema = databaseSchema.schemaFor(tableId);
         if (tableSchema != null) {
@@ -292,21 +375,23 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
                                     tableSchema
                                             .getEnvelopeSchema()
                                             .read(value, sourceInfo.struct(), now);
-                            try {
-                                deserializer.deserialize(
-                                        new SourceRecord(
-                                                null,
-                                                null,
-                                                tableId.identifier(),
-                                                null,
-                                                null,
-                                                null,
-                                                struct.schema(),
-                                                struct),
-                                        outputCollector);
-                            } catch (Exception e) {
-                                LOG.error("Deserialize snapshot record failed ", e);
-                                throw new FlinkRuntimeException(e);
+                            synchronized (checkpointLock) {
+                                try {
+                                    deserializer.deserialize(
+                                            new SourceRecord(
+                                                    null,
+                                                    null,
+                                                    tableId.identifier(),
+                                                    null,
+                                                    null,
+                                                    null,
+                                                    struct.schema(),
+                                                    struct),
+                                            outputCollector);
+                                } catch (Exception e) {
+                                    LOG.error("Deserialize snapshot record failed ", e);
+                                    throw new FlinkRuntimeException(e);
+                                }
                             }
                         }
                     });
@@ -370,9 +455,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
                     }
                 });
 
-        LOG.info(
-                "Try to start XGBinlogClient withconfig: {}",
-                xgReaderConfig);
+        LOG.info("Try to start XGBinlogClient withconfig: {}", xgReaderConfig);
 
         if (!latch.await(connectTimeout.getSeconds(), TimeUnit.SECONDS)) {
             throw new TimeoutException(
@@ -450,11 +533,29 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
                 null, null, tableId.identifier(), null, null, null, struct.schema(), struct);
     }
 
-    private Object getFieldValue(DataMessage.Field field) {
+    private Object getFieldValue(LogMessage.Field field) {
         if (field.getValue() == null) {
             return null;
         }
         return field.getValue();
+    }
+
+    private void refreshTableSchema(TableId tableId) {
+        if (databaseSchema == null) {
+            databaseSchema =
+                    new XuGuDatabaseSchema(
+                            connectorConfig,
+                            new XuGuValueConverters(connectorConfig),
+                            t -> tableSet.contains(t),
+                            false);
+        }
+        if (obSchema == null) {
+            obSchema = new XuGuSchema();
+        }
+        // 直接从数据库读取最新表结构并刷新到 databaseSchema
+        TableChanges.TableChange tc = obSchema.getTableSchema(getSnapshotConnection(), tableId);
+        databaseSchema.refresh(tc.getTable());
+        LOG.info("Refreshed schema for table {} due to DDL", tableId);
     }
 
     @Override
@@ -469,12 +570,17 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
 
     @Override
     public void snapshotState(FunctionSnapshotContext context) throws Exception {
+
+        Map<Integer, XuGuOffset> current =
+                binlogClient != null ? binlogClient.getCurrentOffsets() : null;
         LOG.info(
                 "snapshotState checkpoint: {} at xuguOffset: {}",
                 context.getCheckpointId(),
-                binlogClient.getCurrentOffsets());
+                current);
         offsetState.clear();
-        offsetState.add(binlogClient.getCurrentOffsets());
+        if (current != null) {
+            offsetState.add(current);
+        }
     }
 
     @Override
@@ -484,9 +590,10 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
         offsetState =
                 context.getOperatorStateStore()
                         .getListState(
-                                new ListStateDescriptor<>("xugudb-offsets",
-                                        TypeInformation.of(new TypeHint<Map<Integer, XuGuOffset>>(){}))
-        );
+                                new ListStateDescriptor<>(
+                                        "xugudb-offsets",
+                                        TypeInformation.of(
+                                                new TypeHint<Map<Integer, XuGuOffset>>() {})));
 
         if (context.isRestored()) {
             for (Map<Integer, XuGuOffset> offsets : offsetState.get()) {
@@ -500,9 +607,15 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
 
     @Override
     public void cancel() {
+        running = false;
         closeSnapshotConnection();
         if (binlogClient != null) {
-            binlogClient.stop();
+            try {
+                binlogClient.stop();
+            } catch (Throwable e) {
+                LOG.warn("Stop binlog client error", e);
+            }
+            binlogClient = null;
         }
     }
 

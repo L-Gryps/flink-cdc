@@ -17,16 +17,15 @@
 
 package org.apache.flink.cdc.connectors.xugu.source.schema;
 
-import io.debezium.schema.DefaultTopicNamingStrategy;
-import io.debezium.spi.topic.TopicNamingStrategy;
 import org.apache.flink.cdc.connectors.xugu.source.config.XuGuConnectorConfig;
 import org.apache.flink.cdc.connectors.xugu.source.converter.XuGuDefaultValueConverter;
 import org.apache.flink.cdc.connectors.xugu.source.converter.XuGuValueConverters;
 
-import io.debezium.config.CommonConnectorConfig;
 import io.debezium.relational.RelationalDatabaseSchema;
 import io.debezium.relational.TableSchemaBuilder;
 import io.debezium.relational.Tables;
+import io.debezium.schema.DefaultTopicNamingStrategy;
+import io.debezium.spi.topic.TopicNamingStrategy;
 
 /** OceanBase database schema. */
 public class XuGuDatabaseSchema extends RelationalDatabaseSchema {

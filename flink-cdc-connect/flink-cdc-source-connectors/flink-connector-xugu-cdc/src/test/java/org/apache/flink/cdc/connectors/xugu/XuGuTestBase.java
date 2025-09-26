@@ -15,19 +15,21 @@ public class XuGuTestBase {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(10000);
 
-        SourceFunction<String> build = XuGuSource.<String>builder()
-                .subscribeName("xugu001")
-                .hostname("10.28.25.158")
-                .port(5138)
-                .username("SYSDBA")
-                .password("SYSDBA")
-                .databaseName("CDC_TEST")
-                .tableList("SYSDBA.XUGU_ALL_TYPE2")
-                .startupOptions(StartupOptions.initial())
-                .deserializer(new JsonDebeziumDeserializationSchema())
-                .build();
+        SourceFunction<String> build =
+                XuGuSource.<String>builder()
+                        .subscribeName("xugu001")
+                        .hostname("10.28.25.158")
+                        .port(5138)
+                        .username("SYSDBA")
+                        .password("SYSDBA")
+                        .databaseName("CDC_TEST")
+                        .tableList("SYSDBA.XUGU_ALL_TYPE2")
+                        .startupOptions(StartupOptions.initial())
+                        .deserializer(new JsonDebeziumDeserializationSchema())
+                        .build();
 
-        DataStreamSource<String> stringDataStreamSource = env.addSource(build, "xugu-cdc").setParallelism(1);
+        DataStreamSource<String> stringDataStreamSource =
+                env.addSource(build, "xugu-cdc").setParallelism(1);
 
         stringDataStreamSource.print();
         env.execute();

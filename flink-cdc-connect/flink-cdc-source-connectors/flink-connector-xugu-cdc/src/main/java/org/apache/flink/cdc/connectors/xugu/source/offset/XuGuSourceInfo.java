@@ -47,7 +47,7 @@ public class XuGuSourceInfo extends BaseSourceInfo {
 
     public XuGuSourceInfo(XuGuConnectorConfig config) {
         super(config);
-        this.dbName =  config.databaseName();
+        this.dbName = config.databaseName();
     }
 
     @Override
@@ -58,6 +58,7 @@ public class XuGuSourceInfo extends BaseSourceInfo {
     public void setSourceTime(Instant sourceTime) {
         this.sourceTime = sourceTime;
     }
+
     public Integer getCurrentPartitionId() {
         return currentPartitionId;
     }

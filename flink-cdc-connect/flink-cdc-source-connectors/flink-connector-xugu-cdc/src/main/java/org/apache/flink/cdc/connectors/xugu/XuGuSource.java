@@ -17,21 +17,17 @@
 
 package org.apache.flink.cdc.connectors.xugu;
 
-import com.xugu.binlog.client.config.XGReadConnectionConfig;
-import com.xugu.binlog.client.enums.StartMode;
 import org.apache.flink.cdc.common.annotation.PublicEvolving;
-import org.apache.flink.cdc.connectors.base.options.StartupMode;
 import org.apache.flink.cdc.connectors.base.options.StartupOptions;
 import org.apache.flink.cdc.connectors.xugu.source.XuGuRichSourceFunction;
 import org.apache.flink.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
-import org.apache.commons.lang3.StringUtils;
+import com.xugu.binlog.client.config.XGReadConnectionConfig;
+import com.xugu.binlog.client.enums.StartMode;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -140,7 +136,6 @@ public class XuGuSource {
             return this;
         }
 
-
         public Builder<T> xgcdcProperties(Properties xgcdcProperties) {
             this.xgcdcProperties = xgcdcProperties;
             return this;
@@ -165,7 +160,7 @@ public class XuGuSource {
             checkNotNull(tableList, "table-list shouldn't be null");
             checkNotNull(subscribeName, "subscribeName shouldn't be null");
 
-            if (debeziumProperties == null){
+            if (debeziumProperties == null || debeziumProperties.isEmpty()) {
                 Properties properties = new Properties();
                 properties.setProperty("topic.prefix", LOGICAL_NAME);
                 properties.setProperty("decimal.handling.mode", "precise");
@@ -181,7 +176,7 @@ public class XuGuSource {
             }
 
             if (connectTimeout == null) {
-                connectTimeout = Duration.ofSeconds(300);
+                connectTimeout = Duration.ofSeconds(30);
             }
 
             if (serverTimeZone == null) {
@@ -191,7 +186,6 @@ public class XuGuSource {
             XGReadConnectionConfig xgReadConnectionConfig = null;
 
             if (!startupOptions.isSnapshotOnly()) {
-
 
                 xgReadConnectionConfig = new XGReadConnectionConfig();
 

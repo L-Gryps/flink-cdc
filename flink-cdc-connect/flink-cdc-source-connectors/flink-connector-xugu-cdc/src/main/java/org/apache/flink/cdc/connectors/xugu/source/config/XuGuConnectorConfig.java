@@ -35,19 +35,15 @@ import static io.debezium.jdbc.JdbcConfiguration.DATABASE;
 /** Debezium connector config. */
 public class XuGuConnectorConfig extends RelationalDatabaseConnectorConfig {
 
-
     protected static final int DEFAULT_SNAPSHOT_FETCH_SIZE = Integer.MIN_VALUE;
     protected static final List<String> BUILT_IN_DB_NAMES =
-            Collections.unmodifiableList(
-                    Arrays.asList(
-                            "SYSSSO", "SYSAUDITOR", "GUEST"));
+            Collections.unmodifiableList(Arrays.asList("SYSSSO", "SYSAUDITOR", "GUEST"));
 
     private final String serverTimeZone;
 
-    public XuGuConnectorConfig(
-            String serverTimeZone, Properties properties) {
+    public XuGuConnectorConfig(String serverTimeZone, Properties properties) {
         super(
-               Configuration.from(properties),
+                Configuration.from(properties),
                 Tables.TableFilter.fromPredicate(
                         tableId -> !BUILT_IN_DB_NAMES.contains(tableId.schema())),
                 x -> x.schema() + "." + x.table(),

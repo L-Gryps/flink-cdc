@@ -18,7 +18,6 @@
 package org.apache.flink.cdc.connectors.xugu.table;
 
 import org.apache.flink.cdc.connectors.base.options.StartupOptions;
-import org.apache.flink.cdc.connectors.xugu.utils.XuGuUtils;
 import org.apache.flink.cdc.connectors.xugu.utils.OptionUtils;
 import org.apache.flink.cdc.debezium.table.DebeziumOptions;
 import org.apache.flink.cdc.debezium.utils.JdbcUrlUtils;
@@ -118,14 +117,12 @@ public class XuGuTableSourceFactory implements DynamicTableSourceFactory {
                     .withDescription(
                             "JDBC driver class name, use 'com.xugu.cloudjdbc.Driver' by default.");
 
-
     public static final ConfigOption<Long> SCAN_STARTUP_TIMESTAMP =
             ConfigOptions.key("scan.startup.timestamp")
                     .longType()
                     .noDefaultValue()
                     .withDescription(
                             "Optional timestamp in seconds used in case of \"timestamp\" startup mode.");
-
 
     public static final String XGCDC_PROPERTIES = "xgcdc.properties.";
 

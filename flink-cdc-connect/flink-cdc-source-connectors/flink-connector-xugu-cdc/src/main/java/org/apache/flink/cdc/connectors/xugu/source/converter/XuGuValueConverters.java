@@ -17,27 +17,23 @@
 
 package org.apache.flink.cdc.connectors.xugu.source.converter;
 
-import io.debezium.DebeziumException;
-import io.debezium.time.Timestamp;
-import io.debezium.util.Strings;
 import org.apache.flink.cdc.connectors.xugu.source.config.XuGuConnectorConfig;
 
 import io.debezium.config.CommonConnectorConfig;
-import io.debezium.data.Bits;
 import io.debezium.data.SpecialValueDecimal;
 import io.debezium.jdbc.JdbcValueConverters;
 import io.debezium.relational.Column;
 import io.debezium.relational.ValueConverter;
 import io.debezium.time.MicroTimestamp;
 import io.debezium.time.NanoTimestamp;
-import org.apache.kafka.connect.data.Decimal;
+import io.debezium.time.Timestamp;
+import io.debezium.util.Strings;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -54,22 +50,20 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * JdbcValueConverters for OceanBase.
- */
+/** JdbcValueConverters for OceanBase. */
 public class XuGuValueConverters extends JdbcValueConverters {
 
     public static final String EMPTY_BLOB_FUNCTION = "EMPTY_BLOB()";
     public static final String EMPTY_CLOB_FUNCTION = "EMPTY_CLOB()";
 
     private static final Pattern TIME_FIELD_PATTERN =
-            Pattern.compile("^(-?(?:[0-1]?\\d|2[0-3])):([0-5]\\d)(?::([0-5]\\d))?(?:\\.(\\d{1,6}))?$");
-//    private static final Pattern TIME_FIELD_PATTERN = Pattern.compile("(\\-?[0-9]*):([0-9]*)(:([0-9]*))?(\\.([0-9]*))?");
-
+            Pattern.compile(
+                    "^(-?(?:[0-1]?\\d|2[0-3])):([0-5]\\d)(?::([0-5]\\d))?(?:\\.(\\d{1,6}))?$");
+    //    private static final Pattern TIME_FIELD_PATTERN =
+    // Pattern.compile("(\\-?[0-9]*):([0-9]*)(:([0-9]*))?(\\.([0-9]*))?");
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =
             new DateTimeFormatterBuilder()
@@ -135,7 +129,8 @@ public class XuGuValueConverters extends JdbcValueConverters {
                 return SchemaBuilder.float64();
             case Types.NUMERIC:
             case Types.DECIMAL:
-                return SpecialValueDecimal.builder(decimalMode, column.length(), column.scale().get());
+                return SpecialValueDecimal.builder(
+                        decimalMode, column.length(), column.scale().get());
             case Types.DATE:
                 if (adaptiveTimePrecisionMode || adaptiveTimeMicrosecondsPrecisionMode) {
                     return io.debezium.time.Date.builder();
@@ -222,7 +217,6 @@ public class XuGuValueConverters extends JdbcValueConverters {
         }
     }
 
-
     @Override
     protected Object convertDecimal(Column column, Field fieldDefn, Object data) {
         if (data instanceof BigInteger) {
@@ -236,7 +230,6 @@ public class XuGuValueConverters extends JdbcValueConverters {
 
         return super.convertDecimal(column, fieldDefn, data);
     }
-
 
     @Override
     protected BigDecimal withScaleAdjustedIfNeeded(Column column, BigDecimal data) {
@@ -259,14 +252,13 @@ public class XuGuValueConverters extends JdbcValueConverters {
     }
 
     protected Object convertDate(Column column, Field fieldDefn, Object data) {
-        if (data instanceof String){
-            data = Date.valueOf(((String)data).trim());
+        if (data instanceof String) {
+            data = Date.valueOf(((String) data).trim());
         }
         if (adaptiveTimePrecisionMode || adaptiveTimeMicrosecondsPrecisionMode) {
             return convertDateToEpochDays(column, fieldDefn, data);
         }
         return convertDateToEpochDaysAsDate(column, fieldDefn, data);
-
     }
 
     protected Object convertTimestamp(Column column, Field fieldDefn, Object data) {
@@ -300,7 +292,8 @@ public class XuGuValueConverters extends JdbcValueConverters {
         if (data instanceof String) {
             String timeStr = (String) data;
             LocalTime localTime = LocalTime.parse(timeStr);
-            data = Time.valueOf(localTime);;
+            data = Time.valueOf(localTime);
+            ;
         }
         // xugu time类型处理负时间值，转换为有效值
         if (data instanceof Time) {
@@ -378,8 +371,7 @@ public class XuGuValueConverters extends JdbcValueConverters {
                     .plusMinutes(minutes)
                     .plusSeconds(seconds)
                     .plusNanos(nanoSeconds);
-        }
-        else {
+        } else {
             return Duration.ofHours(hours)
                     .minusMinutes(minutes)
                     .minusSeconds(seconds)
