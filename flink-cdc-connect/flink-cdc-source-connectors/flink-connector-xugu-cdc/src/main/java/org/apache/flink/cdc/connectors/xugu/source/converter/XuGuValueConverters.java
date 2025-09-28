@@ -293,7 +293,6 @@ public class XuGuValueConverters extends JdbcValueConverters {
             String timeStr = (String) data;
             LocalTime localTime = LocalTime.parse(timeStr);
             data = Time.valueOf(localTime);
-            ;
         }
         // xugu time类型处理负时间值，转换为有效值
         if (data instanceof Time) {

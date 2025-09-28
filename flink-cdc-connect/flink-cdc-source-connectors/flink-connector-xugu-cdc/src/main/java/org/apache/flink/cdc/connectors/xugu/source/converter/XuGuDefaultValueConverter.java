@@ -1,8 +1,20 @@
 /*
- * Copyright Debezium Authors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache Software License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
 package org.apache.flink.cdc.connectors.xugu.source.converter;
 
 import io.debezium.annotation.Immutable;
@@ -37,9 +49,6 @@ import java.util.regex.Pattern;
  * This class is used by a DDL parser to convert the string default value to a Java type recognized
  * by value converters for a subset of types. The functionality is kept separate from the main
  * converters to centralize the formatting logic if necessary.
- *
- * @author Jiri Pechanec
- * @see
  */
 @Immutable
 public class XuGuDefaultValueConverter implements DefaultValueConverter {
@@ -384,7 +393,7 @@ public class XuGuDefaultValueConverter implements DefaultValueConverter {
     }
 
     /**
-     * Clean input timestamp to yyyy-mm-dd hh:mm:ss[.fffffffff] format
+     * Clean input timestamp to yyyy-mm-dd hh:mm:ss[.fffffffff] format.
      *
      * @param s input timestamp
      * @return cleaned timestamp
@@ -411,8 +420,8 @@ public class XuGuDefaultValueConverter implements DefaultValueConverter {
             }
         }
 
-        final int MAX_MONTH = 12;
-        final int MAX_DAY = 31;
+        final int maxMonth = 12;
+        final int maxDay = 31;
 
         // Parse the date
         int firstDash = s.indexOf('-');
@@ -443,7 +452,7 @@ public class XuGuDefaultValueConverter implements DefaultValueConverter {
                 day = Integer.parseInt(s.substring(secondDash + 1, len));
             }
 
-            if ((month >= 1 && month <= MAX_MONTH) && (day >= 1 && day <= MAX_DAY)) {
+            if ((month >= 1 && month <= maxMonth) && (day >= 1 && day <= maxDay)) {
                 parsedDate = true;
             }
         }
@@ -489,7 +498,7 @@ public class XuGuDefaultValueConverter implements DefaultValueConverter {
     }
 
     /**
-     * Replace the first non-numeric substring
+     * Replace the first non-numeric substring.
      *
      * @param s the original string
      * @param startIndex the beginning index, inclusive
