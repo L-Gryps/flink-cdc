@@ -23,8 +23,8 @@ import org.apache.flink.cdc.connectors.xugu.source.XuGuRichSourceFunction;
 import org.apache.flink.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
-import com.xugu.binlog.client.config.XGReadConnectionConfig;
-import com.xugu.binlog.client.enums.StartMode;
+import com.xugudb.binlog.client.config.XGReadConnectionConfig;
+import com.xugudb.binlog.client.enums.StartMode;
 
 import java.time.Duration;
 import java.time.ZoneId;
@@ -68,11 +68,17 @@ public class XuGuSource {
         private Long startupTimestamp;
         private Properties xgcdcProperties;
         private Properties debeziumProperties;
+        private String url;
 
         private DebeziumDeserializationSchema<T> deserializer;
 
         public Builder<T> startupOptions(StartupOptions startupOptions) {
             this.startupOptions = startupOptions;
+            return this;
+        }
+
+        public Builder<T> url(String url) {
+            this.url = url;
             return this;
         }
 
@@ -221,6 +227,10 @@ public class XuGuSource {
                     Map<String, String> extraConfigs = new HashMap<>();
                     xgcdcProperties.forEach((k, v) -> extraConfigs.put(k.toString(), v.toString()));
                     xgReadConnectionConfig.setExtraConfigs(extraConfigs);
+                }
+
+                if (!url.isEmpty()) {
+                    xgReadConnectionConfig.setUrl(url);
                 }
             }
 

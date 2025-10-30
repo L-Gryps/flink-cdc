@@ -31,13 +31,14 @@ public class XuGuTestBase {
 
         SourceFunction<String> build =
                 XuGuSource.<String>builder()
-                        .subscribeName("xugu001")
+                        .subscribeName("xugurtp_sub_cdc")
+                        .url("jdbc:xugu://10.28.25.158:5158/SYSTEM?")
                         .hostname("10.28.25.158")
-                        .port(5138)
+                        .port(5158)
                         .username("SYSDBA")
                         .password("SYSDBA")
-                        .databaseName("CDC_TEST")
-                        .tableList("SYSDBA.XUGU_ALL_TYPE2")
+                        .databaseName("SYSTEM")
+                        .tableList("SYSDBA.TEST_JSON")
                         .startupOptions(StartupOptions.initial())
                         .deserializer(new JsonDebeziumDeserializationSchema())
                         .build();

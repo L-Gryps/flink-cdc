@@ -39,11 +39,11 @@ import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import com.xugu.binlog.client.XuGuBinlogClient;
-import com.xugu.binlog.client.api.XuGuEventListener;
-import com.xugu.binlog.client.common.message.LogMessage;
-import com.xugu.binlog.client.common.offset.XuGuOffset;
-import com.xugu.binlog.client.config.XGReadConnectionConfig;
+import com.xugudb.binlog.client.XuGuBinlogClient;
+import com.xugudb.binlog.client.api.XuGuEventListener;
+import com.xugudb.binlog.client.common.message.LogMessage;
+import com.xugudb.binlog.client.common.offset.XuGuOffset;
+import com.xugudb.binlog.client.config.XGReadConnectionConfig;
 import io.debezium.connector.SnapshotRecord;
 import io.debezium.relational.TableId;
 import io.debezium.relational.TableSchema;
@@ -97,7 +97,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
     private final Integer port;
     private final String jdbcDriver;
     private final Properties jdbcProperties;
-    private final XGReadConnectionConfig xgReaderConfig;
+    private final XGReadConnectionConfig xgReadConnectionConfig;
     private final Properties debeziumProperties;
     private final DebeziumDeserializationSchema<T> deserializer;
 
@@ -132,7 +132,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
             Integer port,
             String jdbcDriver,
             Properties jdbcProperties,
-            XGReadConnectionConfig xgReaderConfig,
+            XGReadConnectionConfig xgReadConnectionConfig,
             Properties debeziumProperties,
             DebeziumDeserializationSchema<T> deserializer) {
         this.startupOptions = checkNotNull(startupOptions);
@@ -146,7 +146,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
         this.port = checkNotNull(port);
         this.jdbcDriver = checkNotNull(jdbcDriver);
         this.jdbcProperties = jdbcProperties;
-        this.xgReaderConfig = xgReaderConfig;
+        this.xgReadConnectionConfig = xgReadConnectionConfig;
         this.debeziumProperties = debeziumProperties;
         this.deserializer = checkNotNull(deserializer);
     }
@@ -182,10 +182,10 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
         }
 
         if (!startupOptions.isSnapshotOnly()) {
-            if (resolvedTimestamp > 0 && xgReaderConfig != null) {
-                xgReaderConfig.setStartTimestamp(resolvedTimestamp);
+            if (resolvedTimestamp > 0 && xgReadConnectionConfig != null) {
+                xgReadConnectionConfig.setStartTimestamp(resolvedTimestamp);
             }
-            this.binlogClient = new XuGuBinlogClient(xgReaderConfig);
+            this.binlogClient = new XuGuBinlogClient(xgReadConnectionConfig);
             if (restoredOffsets != null) {
                 binlogClient.restoreOffsets(restoredOffsets);
                 LOG.info("Restored offsets: {}", restoredOffsets);
@@ -317,8 +317,8 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
         LOG.info("Table list: {}", localTableSet);
         this.tableSet = localTableSet;
         // for some 4.x versions, it will be treated as 'tenant.*.*'
-        if (this.xgReaderConfig != null) {
-            this.xgReaderConfig.setIncludeTables(
+        if (this.xgReadConnectionConfig != null) {
+            this.xgReadConnectionConfig.setIncludeTables(
                     localTableSet.stream()
                             .map(tableId -> tableId.toString())
                             .collect(Collectors.toList()));
@@ -404,11 +404,11 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
 
     protected void readChangeRecords() throws InterruptedException, TimeoutException {
         if (resolvedTimestamp > 0) {
-            xgReaderConfig.setStartTimestamp(resolvedTimestamp);
+            xgReadConnectionConfig.setStartTimestamp(resolvedTimestamp);
             LOG.info("Restore from timestamp: {}", resolvedTimestamp);
         }
 
-        this.binlogClient = new XuGuBinlogClient(xgReaderConfig);
+        this.binlogClient = new XuGuBinlogClient(xgReadConnectionConfig);
 
         final CountDownLatch latch = new CountDownLatch(1);
 
@@ -455,7 +455,7 @@ public class XuGuRichSourceFunction<T> extends RichSourceFunction<T>
                     }
                 });
 
-        LOG.info("Try to start XGBinlogClient withconfig: {}", xgReaderConfig);
+        LOG.info("Try to start XGBinlogClient withconfig: {}", xgReadConnectionConfig);
 
         if (!latch.await(connectTimeout.getSeconds(), TimeUnit.SECONDS)) {
             throw new TimeoutException(
